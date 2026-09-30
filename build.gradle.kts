@@ -1,0 +1,111 @@
+import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryTarget
+import com.android.build.api.dsl.LibraryExtension
+import com.android.build.gradle.AppPlugin
+import com.android.build.gradle.LibraryPlugin
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
+
+plugins {
+    alias(libs.plugins.google.ksp) apply false
+    alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.android.kotlin.multiplatform.library) apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.androidx.room) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.kotlin.parcelize) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.remap) apply false
+    alias(libs.plugins.codeorigin) apply false
+    alias(libs.plugins.littlerobots.version)
+}
+
+object Cfg {
+    val compileSdk get() = 37
+    val buildToolsVersion get() = "37.0.0"
+    val minSdk get() = 26
+    val targetSdk get() = compileSdk
+    val sourceVersion = JavaVersion.VERSION_11
+    val targetVersion get() = sourceVersion
+    val kotlinTargetVersion get() = JvmTarget.fromTarget(targetVersion.majorVersion)
+    // 统一应用于所有子项目；未依赖对应库的模块允许出现 unresolved opt-in marker 警告。
+    val kotlinCompilerArgs = listOf(
+        "-opt-in=kotlin.RequiresOptIn",
+        "-opt-in=kotlin.contracts.ExperimentalContracts",
+        "-opt-in=kotlinx.coroutines.FlowPreview",
+        "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+        "-opt-in=kotlinx.serialization.ExperimentalSerializationApi",
+        "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+        "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
+        "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
+        "-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi",
+        "-XXLanguage:+MultiDollarInterpolation",
+        "-XXLanguage:+ExplicitBackingFields",
+    )
+}
+
+val androidKmpLibraryPluginId = libs.plugins.android.kotlin.multiplatform.library.get().pluginId
+
+allprojects {
+    plugins.withType<NodeJsPlugin> {
+        extensions.configure<NodeJsEnvSpec> {
+            download.set(false)
+        }
+    }
+}
+
+subprojects {
+    tasks.withType<KotlinCompilationTask<*>>().configureEach {
+        compilerOptions {
+            freeCompilerArgs.addAll(Cfg.kotlinCompilerArgs)
+        }
+    }
+    tasks.withType<KotlinJvmCompile>().configureEach {
+        compilerOptions {
+            jvmTarget.set(Cfg.kotlinTargetVersion)
+        }
+    }
+    plugins.withType<AppPlugin> {
+        extensions.getByType(ApplicationExtension::class.java).apply {
+            compileSdk = Cfg.compileSdk
+            buildToolsVersion = Cfg.buildToolsVersion
+            defaultConfig {
+                minSdk = Cfg.minSdk
+                targetSdk = Cfg.targetSdk
+            }
+            compileOptions {
+                sourceCompatibility = Cfg.sourceVersion
+                targetCompatibility = Cfg.targetVersion
+            }
+        }
+    }
+    plugins.withType<LibraryPlugin> {
+        extensions.getByType(LibraryExtension::class.java).apply {
+            compileSdk = Cfg.compileSdk
+            buildToolsVersion = Cfg.buildToolsVersion
+            defaultConfig {
+                minSdk = Cfg.minSdk
+            }
+            compileOptions {
+                sourceCompatibility = Cfg.sourceVersion
+                targetCompatibility = Cfg.targetVersion
+            }
+        }
+    }
+    plugins.withId(androidKmpLibraryPluginId) {
+        extensions.getByType(KotlinMultiplatformExtension::class.java).targets.withType(
+            KotlinMultiplatformAndroidLibraryTarget::class.java
+        ).configureEach {
+            compileSdk = Cfg.compileSdk
+            minSdk = Cfg.minSdk
+            compilerOptions {
+                jvmTarget.set(Cfg.kotlinTargetVersion)
+            }
+        }
+    }
+}
