@@ -24,16 +24,12 @@ fun AppOverlayHost() {
     if (!mainVm.termsAcceptedFlow.collectAsStateWithLifecycle().value) {
         GkTermsAcceptDialog()
     } else {
-        // Sheet
-        mainVm.subsSheet.Render()
-
-        // Dialog
+        // CLEAN：原 subsSheet（订阅管理面板）与 subsLinkDialog（添加订阅链接）已随订阅板块下线。
         UiAutomationAlreadyRegisteredDlg()
         AccessRestrictedSettingsDlg()
         mainVm.dialogRequests.Render()
         mainVm.githubUpload.Render()
         mainVm.updateStatus?.UpgradeDialog()
-        mainVm.subsLinkDialog.Render()
         mainVm.ruleGroupState.Render()
         mainVm.ruleControlDialog.Render()
         mainVm.textDialog.Render()

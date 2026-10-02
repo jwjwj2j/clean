@@ -47,7 +47,7 @@ fun GkCategoryActionsSheet(
     onDismissRequest: () -> Unit,
     onSetting: (CategorySetting) -> Unit,
     onClearOverrides: () -> Unit,
-    onEdit: () -> Unit,
+    onEdit: (() -> Unit)? = null,
     onDelete: () -> Unit,
 ) {
     GkRuleSettingsSheet(
@@ -102,11 +102,14 @@ fun GkCategoryActionsSheet(
         CategoryDefaultContent(category, setting, onSetting)
         if (editable) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                GkIconButton(
-                    imageVector = GkIcons.Edit,
-                    contentDescription = UiStrings.category_edit,
-                    onClick = onEdit,
-                )
+                // CLEAN：onEdit 为 null 时不显示「编辑分类」（本地规则编辑已下线）
+                if (onEdit != null) {
+                    GkIconButton(
+                        imageVector = GkIcons.Edit,
+                        contentDescription = UiStrings.category_edit,
+                        onClick = onEdit,
+                    )
+                }
                 GkIconButton(
                     imageVector = GkIcons.Delete,
                     contentDescription = UiStrings.category_delete,

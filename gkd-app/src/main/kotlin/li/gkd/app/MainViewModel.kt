@@ -42,8 +42,6 @@ import li.gkd.app.ui.component.GithubUploadState
 import li.gkd.app.feature.subscription.RuleGroupState
 import li.gkd.app.ui.component.ShareLogState
 import li.gkd.app.domain.rule.RuleGroupTarget
-import li.gkd.app.feature.subscription.SubsLinkDialogState
-import li.gkd.app.feature.subscription.SubsSheetState
 import li.gkd.app.ui.component.TextDialogState
 import li.gkd.app.ui.home.BottomNavItem
 import li.gkd.app.ui.home.HomeRoute
@@ -172,7 +170,7 @@ class MainViewModel : BaseViewModel() {
         if (!dialogRequests.confirm(title = title, text = text, error = true)) return@launchUi
         val deletedTargets = targets()
         dismiss()
-        subsSheet.dismissForDeletion(deletedTargets)
+        // CLEAN：subsSheet 已随订阅板块下线
         ruleGroupState.dismissForDeletion(deletedTargets)
         ruleControlDialog.dismissForDeletion(deletedTargets)
         // Remove the owning page and its descendants synchronously, without the back-button throttle.
@@ -195,14 +193,8 @@ class MainViewModel : BaseViewModel() {
         githubUpload = githubUpload,
     )
 
-    val subsLinkDialog = SubsLinkDialogState(
-        onOpenHelp = { navigateWebPage(ShortUrlSet.URL5) },
-        requestLocalNetworkPermission = {
-            permissionRequests.ensurePermissions(PermissionStates.localNetwork)
-        },
-    )
-
-    val subsSheet = SubsSheetState()
+    // CLEAN：subsLinkDialog（添加/修改订阅链接）与 subsSheet（订阅管理面板）已随订阅板块下线。
+    // 规则来源固定为内置订阅源，用户不再需要任何订阅管理入口。
 
     val appOrderListState = Db.actionLogDao.queryLatestUniqueAppIds().stateLoadable()
     val appVisitOrderMapState = Db.appLastVisitDao.query().map {

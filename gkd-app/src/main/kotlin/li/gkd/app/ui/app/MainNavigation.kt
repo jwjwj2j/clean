@@ -7,8 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
-import li.gkd.app.feature.subscription.CategoryEditorPage
-import li.gkd.app.feature.subscription.CategoryEditorRoute
 import li.gkd.app.feature.subscription.RuleExcludeEditorPage
 import li.gkd.app.feature.subscription.RuleExcludeEditorRoute
 import androidx.compose.animation.slideInHorizontally
@@ -43,18 +41,12 @@ import li.gkd.app.ui.PrivilegeServicePage
 import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.feature.subscription.SubsAppGroupListPage
 import li.gkd.app.feature.subscription.SubsAppGroupListRoute
-import li.gkd.app.feature.subscription.SubsAppListPage
-import li.gkd.app.feature.subscription.SubsAppListRoute
 import li.gkd.app.feature.subscription.SubsCategoryGroupPage
 import li.gkd.app.feature.subscription.SubsCategoryGroupRoute
-import li.gkd.app.feature.subscription.SubsCategoryPage
-import li.gkd.app.feature.subscription.SubsCategoryRoute
 import li.gkd.app.feature.subscription.SubsGlobalGroupExcludePage
 import li.gkd.app.feature.subscription.SubsGlobalGroupExcludeRoute
 import li.gkd.app.feature.subscription.SubsGlobalGroupListPage
 import li.gkd.app.feature.subscription.SubsGlobalGroupListRoute
-import li.gkd.app.feature.subscription.UpsertRuleGroupPage
-import li.gkd.app.feature.subscription.UpsertRuleGroupRoute
 import li.gkd.app.ui.WebViewPage
 import li.gkd.app.ui.WebViewRoute
 import li.gkd.app.feature.settings.WorkModePage
@@ -89,15 +81,13 @@ private val mainRouteEntryProvider = entryProvider {
     entry<ActivityLogRoute> { ActivityLogPage() }
     entry<A11yEventLogRoute> { A11yEventLogPage() }
     entry<EditBlockAppListRoute>(metadata = editorTransitions) { EditBlockAppListPage() }
-    entry<SubsAppListRoute> { SubsAppListPage(it) }
     entry<WebViewRoute> { WebViewPage(it) }
-    entry<SubsCategoryRoute> { SubsCategoryPage(it) }
     entry<SubsGlobalGroupListRoute> { SubsGlobalGroupListPage(it) }
     entry<SubsGlobalGroupExcludeRoute> { SubsGlobalGroupExcludePage(it) }
     entry<ActionLogRoute> { ActionLogPage(it) }
     entry<ImagePreviewRoute> { ImagePreviewPage(it) }
-    entry<UpsertRuleGroupRoute>(metadata = editorTransitions) { UpsertRuleGroupPage(it) }
-    entry<CategoryEditorRoute>(metadata = editorTransitions) { CategoryEditorPage(it) }
+    // CLEAN：SubsAppListRoute / SubsCategoryRoute / UpsertRuleGroupRoute / CategoryEditorRoute
+    // 已随订阅板块与本地规则编辑下线。
     entry<RuleExcludeEditorRoute>(metadata = editorTransitions) { RuleExcludeEditorPage(it) }
     entry<SubsAppGroupListRoute> { SubsAppGroupListPage(it) }
     entry<AppConfigRoute> { AppConfigPage(it) }

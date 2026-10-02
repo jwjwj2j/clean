@@ -170,11 +170,9 @@ fun RuleGroupDialog(
                             mainVm.navigatePage(ImagePreviewRoute(title = group.name, items = buildRuleGroupPreviewItems(group)))
                         })
                     }
-                    DropdownMenuItem(text = { Text(UiStrings.subscription_settings) }, onClick = {
-                        menu = false
-                        onDismissRequest()
-                        mainVm.subsSheet.show(subs.id)
-                    })
+                    // CLEAN：原「订阅设置」菜单项会打开订阅管理面板（mainVm.subsSheet）。
+                    // 订阅板块已下线、规则来源固定为内置订阅源，该项目一并移除；
+                    // 它也是「应用」页唯一残留的订阅管理入口。
                     if (subs.isLocal) {
                         DropdownMenuItem(text = { Text(UiStrings.rule_delete) },
                             onClick = { menu = false; onClickDelete() })

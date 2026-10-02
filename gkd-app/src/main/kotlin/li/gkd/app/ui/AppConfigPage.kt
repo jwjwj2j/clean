@@ -37,7 +37,6 @@ import li.gkd.app.domain.rule.RuleSetting
 import li.gkd.app.domain.rule.toRuleGroupTarget
 import li.gkd.app.feature.log.ActionLogRoute
 import li.gkd.app.feature.subscription.SubsAppGroupListRoute
-import li.gkd.app.feature.subscription.UpsertRuleGroupRoute
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.ui.share.ListPlaceholder
 import li.gkd.app.ui.share.launchUi
@@ -273,20 +272,7 @@ fun AppConfigPage(route: AppConfigRoute) {
             )
         },
         floatingActionButton = {
-            GkAnimatedFloatingActionButton(
-                visible = !isSelectedMode,
-                onClick = {
-                    mainVm.navigatePage(
-                        UpsertRuleGroupRoute(
-                            subsId = LOCAL_SUBS_ID,
-                            groupKey = null,
-                            appId = appId
-                        )
-                    )
-                },
-                imageVector = GkIcons.Add,
-                contentDescription = UiStrings.rule_add
-            )
+            // CLEAN：原「新增规则组」FAB（向本地订阅添加规则组）已随本地规则编辑下线
         },
     ) { contentPadding ->
         Column(Modifier.scaffoldPadding(contentPadding)) {

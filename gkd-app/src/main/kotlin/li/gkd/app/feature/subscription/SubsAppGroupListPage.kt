@@ -220,22 +220,7 @@ fun SubsAppGroupListPage(route: SubsAppGroupListRoute) {
                 },
             )
         }, floatingActionButton = {
-            if (editable) {
-                GkAnimatedFloatingActionButton(
-                    visible = !isSelectedMode,
-                    onClick = {
-                        mainVm.navigatePage(
-                            UpsertRuleGroupRoute(
-                                subsId = subsItemId,
-                                groupKey = null,
-                                appId = appId
-                            )
-                        )
-                    },
-                    contentDescription = UiStrings.rule_add,
-                    imageVector = GkIcons.Add,
-                )
-            }
+            // CLEAN：原「新增规则组」FAB 已随本地规则编辑下线
         }) { contentPadding ->
             Column(Modifier.scaffoldPadding(contentPadding)) {
                 if (focus.missing) GkRuleFocusNotice()

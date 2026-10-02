@@ -55,6 +55,132 @@ object SubscriptionRepository {
             }
         }
         ensureLocalSubscription()
+        // CLEAN：确保内置订阅源已安装并启用，同时清除其它订阅源（单源强制）。
+        // 注意不能写在上面那次 withStateLock 里 —— MutexState 不可重入，会死锁。
+        // 离线或下载失败时静默跳过，不阻断启动，下次启动会重试。
+        runCatching { ensureBuiltin() }
+            .onFailure { LogUtils.d("内置订阅源安装失败", it.message) }
+    }
+
+    /**
+     * CLEAN 内置订阅源地址（主 + 备用），按顺序重试。
+     *
+     * 该源直接返回原始 JSON5 订阅正文（响应头为 application/json5），
+     * 因此可以原样交给 [RawSubscription.parse]。
+     */
+    val builtinUrls = listOf(
+        "https://registry.npmmirror.com/@gkd-kit/subscription/latest/files",
+        "https://registry.npmmirror.com/@gkd-kit/subscription/latest/files/dist/gkd.json5",
+        "https://fastly.jsdelivr.net/npm/@gkd-kit/subscription",
+    )
+
+    /**
+     * 确保内置订阅源已安装并启用，并清除其它订阅源。
+     *
+     * 设计要点（改动前请先读 docs/03）：
+     * - **必须在锁内完成下载与写入**，由本函数自行取锁；调用方不要再包一层 withStateLock。
+     * - 安装时必须显式 `enable = true`：`SubsItem.enable` 默认 false，而「应用」页只展示
+     *   enable=true 的订阅，漏掉会出现"装上却零规则"。
+     * - 不能复用 [addOrModifyRemote]：它把 enable 硬编码为 false，且并发时直接返回 Busy。
+     * - 失败只返回结果，不抛异常，避免阻断 App 启动。
+     */
+    suspend fun ensureBuiltin(): SubscriptionResult = withContext(Dispatchers.IO) {
+        var result: SubscriptionResult = SubscriptionResult.Busy
+        val acquired = updateMutex.tryWithStateLock {
+            val items = Db.subsItemDao.queryAll()
+            val existing = items.firstOrNull { it.updateUrl != null && it.updateUrl in builtinUrls }
+
+            if (existing != null) {
+                if (!existing.enable) {
+                    Db.subsItemDao.updateEnable(existing.id, true)
+                }
+                purgeForeignSources(keepId = existing.id)
+                refreshRawSubscriptions(
+                    items = Db.subsItemDao.queryAll(),
+                    previous = SubscriptionSnapshot(),
+                )
+                result = SubscriptionResult.Success(kind = SubscriptionResult.SuccessKind.Refreshed)
+                return@tryWithStateLock
+            }
+
+            var text: String? = null
+            var lastError: Exception? = null
+            for (url in builtinUrls) {
+                try {
+                    text = client.get(url).bodyAsText()
+                    break
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    lastError = e
+                    LogUtils.d("内置订阅源下载失败", url, e.message)
+                }
+            }
+            if (text == null) {
+                result = SubscriptionResult.Failure(
+                    reason = SubscriptionResult.FailureReason.Download,
+                    detail = lastError?.message,
+                    cause = lastError,
+                )
+                return@tryWithStateLock
+            }
+
+            val subscription = try {
+                RawSubscription.parse(text)
+            } catch (e: Exception) {
+                result = SubscriptionResult.Failure(
+                    reason = SubscriptionResult.FailureReason.Parse,
+                    detail = e.message,
+                    cause = e,
+                )
+                return@tryWithStateLock
+            }
+            if (subscription.id < 0) {
+                result = SubscriptionResult.Failure(
+                    reason = SubscriptionResult.FailureReason.InvalidId,
+                    detail = subscription.id.toString(),
+                )
+                return@tryWithStateLock
+            }
+
+            purgeForeignSources(keepId = null)
+            try {
+                saveLocked(
+                    subscription = subscription,
+                    newItem = SubsItem(
+                        id = subscription.id,
+                        updateUrl = builtinUrls.first(),
+                        order = 0,
+                        enable = true,
+                    ),
+                    insertItem = true,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                result = SubscriptionResult.Failure(
+                    reason = SubscriptionResult.FailureReason.Save,
+                    detail = e.message,
+                    cause = e,
+                )
+                return@tryWithStateLock
+            }
+            result = SubscriptionResult.Success(kind = SubscriptionResult.SuccessKind.Added)
+        }
+        if (!acquired) return@withContext SubscriptionResult.Busy
+        result
+    }
+
+    /** CLEAN 单源强制：删除除 [keepId] 与本地订阅之外的所有订阅源。必须在锁内调用。 */
+    private suspend fun purgeForeignSources(keepId: Long?) {
+        val stale = Db.subsItemDao.queryAll()
+            .filter { it.id != keepId && !it.isLocal }
+            .map { it.id }
+            .toLongArray()
+        if (stale.isEmpty()) return
+        runCatching { SubscriptionPersistence.delete(stale) }
+            .onSuccess { LogUtils.d("已清除非内置订阅源", it.ids) }
+            .onFailure { LogUtils.d("清除订阅源失败", it.message) }
     }
 
     private suspend fun ensureLocalSubscription() = withContext(Dispatchers.IO) {

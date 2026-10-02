@@ -131,16 +131,8 @@ class RuleGroupState(
                     val change = RuleGroupConfigService.prepare(listOf(showGroupState.toSwitchTarget()), listOf(showSubs), configSnapshot.snapshot)
                     mainVm.scope.launchUi { RuleGroupConfigService.apply(change, setting).failureMessage?.let { toast(it) } }
                 },
-                onClickEdit = {
-                    dismiss()
-                    mainVm.navigatePage(
-                        UpsertRuleGroupRoute(
-                            subsId = showGroupState.subsId,
-                            groupKey = showGroupState.groupKey,
-                            appId = showGroupState.appId,
-                        )
-                    )
-                },
+                // CLEAN：onClickEdit（跳转本地规则组编辑器）已随本地规则编辑功能下线，
+                // 使用 RuleGroupDialog 的默认空实现。
                 onClickEditExclude = {
                     openExcludeEditor(showGroupState, dismiss)
                 },

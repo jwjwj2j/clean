@@ -168,22 +168,7 @@ fun SubsGlobalGroupListPage(route: SubsGlobalGroupListRoute) {
                 )
             },
             floatingActionButton = {
-                if (editable) {
-                    GkAnimatedFloatingActionButton(
-                        visible = !isSelectedMode,
-                        onClick = {
-                            mainVm.navigatePage(
-                                UpsertRuleGroupRoute(
-                                    subsId = subsItemId,
-                                    groupKey = null,
-                                    appId = null,
-                                )
-                            )
-                        },
-                        imageVector = GkIcons.Add,
-                        contentDescription = UiStrings.rule_add
-                    )
-                }
+                // CLEAN：原「新增规则组」FAB 已随本地规则编辑下线
             },
         ) { paddingValues ->
             Column(Modifier.scaffoldPadding(paddingValues)) {

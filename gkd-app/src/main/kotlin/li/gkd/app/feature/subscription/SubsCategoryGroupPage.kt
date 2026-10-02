@@ -242,7 +242,7 @@ fun SubsCategoryGroupPage(route: SubsCategoryGroupRoute) {
                     showActions = false
                     updateGroups(state.overrideTargets, null, entireCategory = true)
                 },
-                onEdit = { showActions = false; mainVm.navigatePage(CategoryEditorRoute(subs.id, category.key)) },
+                // CLEAN：onEdit（跳转分类编辑器）已随本地规则编辑下线，不再传入
                 onDelete = {
                     mainVm.confirmDelete(
                         title = UiStrings.category_delete,

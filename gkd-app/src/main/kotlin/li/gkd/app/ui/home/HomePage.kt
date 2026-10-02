@@ -31,12 +31,6 @@ sealed class BottomNavItem(
         icon = GkIcons.Home,
     )
 
-    object SubsManage : BottomNavItem(
-        key = 1,
-        label = UiStrings.subscription_title,
-        icon = GkIcons.StackedDocuments,
-    )
-
     object AppList : BottomNavItem(
         key = 2,
         label = UiStrings.apps_title,
@@ -50,7 +44,10 @@ sealed class BottomNavItem(
     )
 
     companion object {
-        val allSubObjects by lazy { arrayOf(Dashboard, SubsManage, AppList, Settings) }
+        // CLEAN：原 SubsManage(key=1) 订阅板块已下线。
+        // 刻意保留 Dashboard=0 / AppList=2 / Settings=3 的 key 不变，
+        // 否则 gkd://page?tab=N 深链与既有用户配置会错位。
+        val allSubObjects by lazy { arrayOf(Dashboard, AppList, Settings) }
     }
 }
 
@@ -76,7 +73,6 @@ fun ResetPageScrollOnRequest(
 @Composable
 fun HomePage() {
     val mainVm = MainViewModel.requireCurrent()
-    viewModel<SubsManageVm>()
     val tab by mainVm.tabFlow.collectAsStateWithLifecycle()
     val selectedTab = BottomNavItem.allSubObjects.find { it.key == tab }
         ?: BottomNavItem.Dashboard
@@ -85,7 +81,6 @@ fun HomePage() {
     saveableStateHolder.SaveableStateProvider(selectedTab.key) {
         val page = when (selectedTab) {
             BottomNavItem.Dashboard -> useDashboardPage()
-            BottomNavItem.SubsManage -> useSubsManagePage()
             BottomNavItem.AppList -> useAppListPage()
             BottomNavItem.Settings -> useSettingsPage()
         }
