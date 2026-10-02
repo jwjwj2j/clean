@@ -17,13 +17,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import li.gkd.app.text.UiStrings
 import li.gkd.app.store.AppStore
 import li.gkd.app.store.AppStore.storeFlow
-import li.gkd.app.feature.settings.AboutRoute
 import li.gkd.app.ui.style.titleItemPadding
-import li.gkd.app.util.AndroidTarget
 import li.gkd.app.util.DarkThemeOption
 import li.gkd.app.util.findOption
 import li.gkd.app.ui.share.launchUi
-import li.gkd.app.ui.component.GkSettingItem
 import li.gkd.app.ui.component.GkTextMenu
 import li.gkd.app.ui.component.GkTextSwitch
 import li.gkd.app.ui.component.GkTopAppBar
@@ -120,29 +117,11 @@ fun useSettingsPage(): ScaffoldExt {
                 }
             )
 
-            if (AndroidTarget.S) {
-                GkTextSwitch(
-                    title = UiStrings.dynamic_colors,
-                    checked = store.enableDynamicColor,
-                    onCheckedChange = {
-                        vm.setDynamicColor(it)
-                    }
-                )
-            }
+            // CLEAN：原「动态配色」（enableDynamicColor）设置项已移除，
+            // 应用固定使用 CLEAN 自己的配色方案，不再随壁纸取色。
 
-            Text(
-                text = UiStrings.settings_other,
-                modifier = Modifier.titleItemPadding(),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-
-            // CLEAN：原「高级设置」与「备份与恢复」入口均已移除（HTTP、悬浮窗、GitHub cookie、
-            // 备份导入导出等技术面随页面一并下线）
-
-            GkSettingItem(title = UiStrings.about_title, onClick = {
-                mainVm.navigatePage(AboutRoute)
-            })
+            // CLEAN：原「其他」分组与其中的「关于」入口已一并移除
+            // （AboutRoute / AboutPage / AboutDialogs 已随之下线）。
 
             GkPageBottomSpace()
         }

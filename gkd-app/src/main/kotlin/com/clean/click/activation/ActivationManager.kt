@@ -79,7 +79,7 @@ object ActivationManager {
         val result = ActivationCodec.verify(
             secret = secret,
             code = record.code,
-            nowMinutes = ActivationCodec.currentIssueMinutes(),
+            nowSeconds = ActivationCodec.currentIssueSeconds(),
             today = LocalDate.now(ZoneOffset.UTC),
             // 关键：复检已存储的码时不再校验激活窗口，
             // 窗口只约束"何时能激活"，不约束"激活后能用多久"。
@@ -122,7 +122,7 @@ object ActivationManager {
         val result = ActivationCodec.verify(
             secret = secret,
             code = normalized,
-            nowMinutes = ActivationCodec.currentIssueMinutes(),
+            nowSeconds = ActivationCodec.currentIssueSeconds(),
             today = LocalDate.now(ZoneOffset.UTC),
             enforceWindow = true,
         )

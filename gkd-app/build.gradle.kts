@@ -84,7 +84,9 @@ android {
         debug {
             signingConfig = gkdSigningConfig
             applicationIdSuffix = ".debug"
-            resValue("color", "better_black", "#FF5D92")
+            // CLEAN：原先在 debug 下把 better_black 覆盖成 #FF5D92（粉），用来一眼区分调试包。
+            // 但这会让 debug 包的**应用图标、启动图、关于页标记**都变粉，
+            // 与正式版（以及「CLEAN 发码器」）的黑白图标不一致，故按需求去掉该覆盖。
             for ((name, value) in debugSuffixResources) {
                 resValue("string", name, value)
             }

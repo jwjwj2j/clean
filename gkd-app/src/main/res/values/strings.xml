@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" debug_suffix="true">CLEAN</string>
+    <!-- CLEAN：去掉 debug_suffix，调试包的应用名不再变成「CLEAN-debug」 -->
+    <string name="app_name">CLEAN</string>
     <string name="a11y_desc">基于高级选择器和订阅规则的屏幕自定义点击服务\n\n通过自定义选择器和订阅规则，能帮助你实现点击任意位置控件，自定义快捷操作等高级功能</string>
-    <string name="rule_match" debug_suffix="true">规则匹配</string>
+    <!-- CLEAN：去掉 debug_suffix，调试包里该服务的 label 不再变成「规则匹配-debug」 -->
+    <string name="rule_match">规则匹配</string>
     <string name="a11y_about">关于无障碍</string>
     <string name="a11y_automation_mode_notice">当前为自动化模式，无障碍将自动关闭</string>
     <string name="a11y_enable_failed">开启无障碍失败</string>
@@ -17,8 +19,6 @@
     <string name="a11y_stopped">无障碍已关闭</string>
     <string name="a11y_unauthorized">无障碍未授权</string>
     <string name="a11y_usage_description">CLEAN 需要开启无障碍权限，才能读取屏幕内容，并按规则自动跳过广告和弹窗</string>
-    <string name="about_easter_egg">你干嘛~ 哎呦~</string>
-    <string name="about_title">关于</string>
     <string name="action_add">添加</string>
     <string name="action_agree">同意</string>
     <string name="action_back">返回</string>
@@ -45,12 +45,10 @@
     <string name="action_open">打开</string>
     <string name="action_pause">暂停</string>
     <string name="action_save">保存</string>
-    <string name="action_save_to_downloads">保存到下载</string>
     <string name="action_share">分享</string>
     <string name="action_stop">停止</string>
     <string name="action_turn_on">开启</string>
     <string name="action_understood">我知道了</string>
-    <string name="apk_share">分享安装文件</string>
     <string name="app_count">%1$s 个应用</string>
     <string name="app_list_permission_error_description">检测到已授予「%1$s」但实际获取应用数量稀少，已使用其它方式获取但可能不全，在应用列表下拉刷新可重新获取，若无法解决可尝试关闭权限后重新授予或重启设备</string>
     <string name="app_list_search">搜索应用列表</string>
@@ -85,7 +83,6 @@
     <string name="automation_started">自动化已启动</string>
     <string name="automation_state_check_failed">自动化状态检测失败：%1$s</string>
     <string name="automation_stopped">自动化已关闭</string>
-    <string name="build_channel">构建渠道</string>
     <string name="category_override_count">%1$s 个规则组已单独设置</string>
     <string name="category_override_unaffected">不受下方选项影响</string>
     <string name="category_all_scope">本类别全部</string>
@@ -117,9 +114,7 @@
     <string name="category_subscription_default">订阅类别默认设置</string>
     <string name="category_use_group_default">跟随规则组</string>
     <string name="category_use_group_default_description">忽略类别，使用规则组默认开关</string>
-    <string name="code_history">代码记录</string>
     <string name="collapsed">已折叠</string>
-    <string name="commit_time">提交时间</string>
     <string name="compatibility_notice">兼容性提示</string>
     <string name="config_edit">编辑配置</string>
     <string name="config_loading">配置加载中</string>
@@ -132,10 +127,6 @@
     <string name="delete_success">删除成功</string>
     <string name="details_view">查看详情</string>
     <string name="dialog_close">关闭弹窗</string>
-    <string name="download_directory_create_failed">创建下载目录失败</string>
-    <string name="download_file_create_failed">创建下载文件失败</string>
-    <string name="download_file_open_failed">打开下载文件失败</string>
-    <string name="dynamic_colors">动态配色</string>
     <string name="edit_discard_confirmation">当前内容未保存，是否放弃编辑？</string>
     <string name="edit_enter">进入编辑</string>
     <string name="edit_exit">退出编辑</string>
@@ -143,16 +134,7 @@
     <string name="error_label">异常</string>
     <string name="exclusion_config_conflict">排除配置已被其他操作修改，请重新打开编辑</string>
     <string name="expanded">已展开</string>
-    <string name="feedback_app_issue_prefix">如果您已经确信是 CLEAN 应用本体的问题</string>
-    <string name="feedback_continue_suffix">，可点击下方继续反馈</string>
-    <string name="feedback_notice">反馈须知</string>
-    <string name="feedback_report">问题反馈</string>
-    <string name="feedback_scope">CLEAN 默认不携带任何规则，只接受应用本体功能相关的反馈</string>
-    <string name="feedback_subscription_notice">请先判断是不是第三方规则订阅的问题，如果是，您应该向规则提供者反馈，而不是在此处反馈。</string>
-    <string name="feedback_thanks_prefix">感谢您愿意花时间反馈，</string>
-    <string name="feedback_title">反馈</string>
     <string name="file_delete_failed">无法删除 %1$s</string>
-    <string name="file_saved_to_downloads">已保存 %1$s 到下载</string>
     <string name="file_too_large">文件超过大小限制</string>
     <string name="filter_title">筛选</string>
     <string name="fullscreen_dialog">全局弹窗</string>
@@ -363,7 +345,6 @@
     <string name="settings_all_off">全部关闭</string>
     <string name="settings_appearance">外观</string>
     <string name="settings_general">常规</string>
-    <string name="settings_other">其他</string>
     <string name="settings_reset_default">恢复默认</string>
     <string name="settings_title">设置</string>
     <string name="settings_write_failed">设置写入失败: %1$s</string>
@@ -371,7 +352,6 @@
     <string name="snapshot_too_many_nodes">节点数量过多</string>
     <string name="sort_filter">排序筛选</string>
     <string name="sort_title">排序</string>
-    <string name="source_code">开源代码</string>
     <string name="startup_failed">启动失败</string>
     <string name="status_statistics_description">显示运行状态及统计数据</string>
     <string name="subscription_add_success">成功添加订阅</string>
@@ -418,7 +398,6 @@
     <string name="terms_accept_prefix">感谢使用 CLEAN！您需要阅读并同意「</string>
     <string name="terms_accept_suffix">」才能继续使用, 请仔细阅读相关内容</string>
     <string name="terms_notice">使用声明</string>
-    <string name="terms_of_use">使用协议</string>
     <string name="text_copy">复制文本</string>
     <string name="text_parse_failed">解析文本失败</string>
     <string name="text_view">查看文本</string>
@@ -443,9 +422,6 @@
     <string name="updates_none">暂无更新</string>
     <string name="uri_unknown">未知URI\n%1$s</string>
     <string name="user_agreement">用户协议</string>
-    <string name="version_code">版本代码</string>
-    <string name="version_info">版本信息</string>
-    <string name="version_name">版本名称</string>
     <string name="webview_outdated_notice">检测到您的系统内置浏览器版本(%1$s)过低, 可能无法正常浏览网页文档\n\n建议自行升级版本后重启 CLEAN 再查看文档, 或点击右上角后在外部浏览器打开查阅\n\n若能正常浏览文档请忽略此项提示</string>
     <string name="webview_reload">刷新页面</string>
     <string name="wechat_unavailable">请检查微信是否安装或禁用</string>

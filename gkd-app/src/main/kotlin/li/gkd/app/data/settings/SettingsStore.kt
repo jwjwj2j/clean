@@ -24,7 +24,8 @@ data class SettingsStore(
     val actionToast: String = META.appName,
     val autoClearMemorySubs: Boolean = false,
     val enableDarkTheme: Boolean? = null,
-    val enableDynamicColor: Boolean = true,
+    // CLEAN：enableDynamicColor（动态配色）已随该设置项移除，应用固定使用 CLEAN 配色方案。
+    // 老配置中的该字段由 json 的 ignoreUnknownKeys 忽略。
     val useSystemToast: Boolean = false,
     val useCustomNotifText: Boolean = false,
     val customNotifTitle: String = META.appName,

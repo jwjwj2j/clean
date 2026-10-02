@@ -15,8 +15,6 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import li.gkd.app.feature.settings.AboutPage
-import li.gkd.app.feature.settings.AboutRoute
 import li.gkd.app.feature.subscription.RuleExcludeEditorPage
 import li.gkd.app.feature.subscription.RuleExcludeEditorRoute
 import li.gkd.app.feature.subscription.SubsAppGroupListPage
@@ -57,7 +55,7 @@ private val editorTransitions = NavDisplay.transitionSpec {
 
 private val mainRouteEntryProvider = entryProvider {
     entry<HomeRoute> { HomePage() }
-    entry<AboutRoute> { AboutPage() }
+    // CLEAN：AboutRoute / AboutPage 已随设置页「其他」分组的移除而下线
 
     // 应用规则控制面（消费级核心）
     entry<AppConfigRoute> { AppConfigPage(it) }

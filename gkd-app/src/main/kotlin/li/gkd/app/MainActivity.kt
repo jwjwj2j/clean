@@ -20,12 +20,10 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.clean.click.activation.ActivationManager
-import li.gkd.app.text.UiStrings
 import li.gkd.app.platform.lifecycle.onCreated
 import li.gkd.app.platform.lifecycle.useMainActivityLifecycle
 import li.gkd.app.platform.lifecycle.useLogLifecycle
 import li.gkd.app.permission.PermissionRequests
-import li.gkd.app.permission.PermissionStates
 import li.gkd.app.service.StatusService
 import li.gkd.app.service.updateTopTaskAppId
 import li.gkd.app.store.AppStore.storeFlow
@@ -35,9 +33,7 @@ import li.gkd.app.ui.share.FixedWindowInsets
 import li.gkd.app.ui.app.AppRoot
 import li.gkd.app.util.AndroidTarget
 import li.gkd.app.util.BarUtils
-import li.gkd.app.util.SystemDownloads
 import li.gkd.app.util.mapState
-import li.gkd.app.util.ToastUtils.toast
 import li.gkd.app.util.tryStartActivity
 import java.io.File
 
@@ -78,13 +74,9 @@ class MainActivity : ComponentActivity() {
         tryStartActivity(Intent.createChooser(intent, title))
     }
 
-    suspend fun saveFileToDownloads(file: File) {
-        if (!mainVm.permissionRequests.ensurePermissions(PermissionStates.writeExternalStorage)) {
-            return
-        }
-        val savedName = SystemDownloads.save(file) ?: return
-        toast(UiStrings.file_saved_to_downloads(savedName))
-    }
+    // CLEAN：原 saveFileToDownloads(file) 已随关于页的「分享 APK」对话框一同移除
+    // （唯一调用方在 AboutDialogs 里）。util/SystemDownloads、util/ExportFileNames
+    // 及其单元测试也一并删除。
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()

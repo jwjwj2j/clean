@@ -49,9 +49,7 @@ class SettingsVm : BaseViewModel() {
         AppStore.updateSettings { it.copy(enableDarkTheme = value) }
     }
 
-    fun setDynamicColor(enabled: Boolean) {
-        AppStore.updateSettings { it.copy(enableDynamicColor = enabled) }
-    }
+    // CLEAN：原 setDynamicColor(enabled) 已随「动态配色」设置项移除
 
     // CLEAN：原 importBackup(uri) / exportBackup() 已随备份功能移除
 }

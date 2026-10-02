@@ -8,8 +8,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -34,20 +32,19 @@ import li.gkd.app.app
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.ui.share.LocalDarkTheme
 import li.gkd.app.ui.share.LocalIsTalkbackEnabled
-import li.gkd.app.util.AndroidTarget
 
 private val LightColorScheme = lightColorScheme()
 private val DarkColorScheme = darkColorScheme()
 
 private fun createAppearanceFlow(scope: CoroutineScope) =
     storeFlow
-        .map { it.enableDarkTheme to it.enableDynamicColor }
+        .map { it.enableDarkTheme }
         .distinctUntilChanged()
         .debounce(300)
         .stateIn(
             scope,
             SharingStarted.Eagerly,
-            storeFlow.value.let { it.enableDarkTheme to it.enableDynamicColor },
+            storeFlow.value.enableDarkTheme,
         )
 
 @Composable
@@ -57,17 +54,14 @@ fun AppTheme(
 ) {
     val scope = rememberCoroutineScope()
     val appearanceFlow = remember(scope) { createAppearanceFlow(scope) }
-    val (enableDarkTheme, enableDynamicColor) = appearanceFlow.collectAsStateWithLifecycle().value
+    val enableDarkTheme = appearanceFlow.collectAsStateWithLifecycle().value
     val systemInDarkTheme = isSystemInDarkTheme()
     val darkTheme = (enableDarkTheme ?: systemInDarkTheme).let {
         if (invertedTheme) !it else it
     }
-    val colorScheme = when {
-        AndroidTarget.S && enableDynamicColor && darkTheme -> dynamicDarkColorScheme(app)
-        AndroidTarget.S && enableDynamicColor && !darkTheme -> dynamicLightColorScheme(app)
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    // CLEAN：原「动态配色」开关已移除，固定使用 CLEAN 自己的配色方案，
+    // 不再随壁纸取色（Material You），以保证品牌观感一致。
+    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
     val activity = LocalActivity.current
     if (activity != null) {
