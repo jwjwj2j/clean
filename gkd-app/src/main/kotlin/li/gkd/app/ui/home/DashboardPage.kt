@@ -50,7 +50,6 @@ import li.gkd.app.priv.privilegeContextFlow
 import li.gkd.app.priv.privilegeServiceStatusFlow
 import li.gkd.app.priv.uiAutomationFlow
 import li.gkd.app.service.A11yService
-import li.gkd.app.service.ActivityService
 import li.gkd.app.service.StatusService
 import li.gkd.app.service.a11yPartDisabledFlow
 import li.gkd.app.service.switchAutomatorService
@@ -252,19 +251,8 @@ fun useDashboardPage(): ScaffoldExt {
                 },
             )
 
-            if (ActivityService.isRunning.collectAsStateWithLifecycle().value) {
-                PageItemCard(
-                    title = UiStrings.activity_log_title,
-                    subtitle = UiStrings.activity_record_description,
-                    imageVector = GkIcons.Layers,
-                    onClickLabel = UiStrings.activity_log_open,
-                    onClick = {
-                        mainVm.navigatePage(ActivityLogRoute)
-                    })
-            }
-
-            // CLEAN：原「了解 GKD / 打开文档」卡片已删除（指向 gkd.li 的 WebView 入口，
-            // 且 WebView 页面本身在消费级收口中移除）。
+            // CLEAN：原「活动记录」卡片依赖 ActivityService（悬浮调试窗），已随其下线；
+            // 原「了解 GKD / 打开文档」卡片指向 gkd.li 的 WebView 入口，也已移除。
             GkPageBottomSpace()
         }
     }

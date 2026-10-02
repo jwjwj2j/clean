@@ -34,10 +34,8 @@ import li.gkd.app.service.A11yService
 import li.gkd.app.store.AppStore
 import li.gkd.app.store.FileStateStore
 import li.gkd.app.store.AppStore.storeFlow
-import li.gkd.app.feature.settings.AdvancedPageRoute
 import li.gkd.app.ui.CrashReportRoute
 import li.gkd.app.ui.PrivilegeServiceRoute
-import li.gkd.app.feature.snapshot.SnapshotPageRoute
 import li.gkd.app.ui.WebViewRoute
 import li.gkd.app.ui.component.DialogRequests
 import li.gkd.app.ui.component.GithubUploadState
@@ -287,8 +285,7 @@ class MainViewModel : BaseViewModel() {
                     backStack.subList(1, backStack.size).clear()
                 }
 
-                "/1" -> navigatePage(AdvancedPageRoute)
-                "/2" -> navigatePage(SnapshotPageRoute)
+                // CLEAN：gkd://page/1（高级设置）与 /2（快照）已下线，交由 else 提示
                 "/3", "/4" -> navigatePage(PrivilegeServiceRoute)
                 else -> notFoundToast()
             }

@@ -3,18 +3,17 @@ package li.gkd.app.notif
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import androidx.core.app.NotificationManagerCompat
-import li.gkd.app.text.UiStrings
 import li.gkd.app.META
 import li.gkd.app.app
 
+// CLEAN: 原有两个渠道（Service 运行状态 / Snapshot 快照已保存），快照下线后只剩运行状态。
 enum class AppNotificationChannel(
     val id: String,
     private val label: String? = null,
     val description: String? = null,
     val importance: Int = NotificationManager.IMPORTANCE_LOW,
 ) {
-    Service(id = "0"),
-    Snapshot(id = "1", label = UiStrings.snapshot_notification_channel);
+    Service(id = "0");
 
     val displayName: String
         get() = label ?: META.appName

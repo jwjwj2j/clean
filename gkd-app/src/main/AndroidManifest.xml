@@ -7,9 +7,6 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission
-        android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
-        android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="com.android.permission.GET_INSTALLED_APPS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -127,10 +124,7 @@
                 android:resource="@xml/a11y_info" />
         </service>
 
-        <service
-            android:name=".service.ScreenshotService"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+        <!-- CLEAN：ScreenshotService（媒体投影截图）已随快照功能下线 -->
         <service
             android:name=".service.StatusService"
             android:exported="false"
@@ -139,56 +133,9 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Display the running state of the application" />
         </service>
-        <service
-            android:name=".service.HttpService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Enable the HTTP server to provide external browser connections and debugging" />
-        </service>
-        <service
-            android:name=".service.ButtonService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Display a screenshot button for users to actively save screen information." />
-        </service>
-        <service
-            android:name=".service.ActivityService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Display a text card for users to show current activity info" />
-        </service>
-        <service
-            android:name=".service.EventService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Display a text card for users to show a11y event log" />
-
-        </service>
-        <service
-            android:name=".service.TrackService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Show Action Track" />
-        </service>
-        <service
-            android:name=".service.ExposeService"
-            android:exported="true"
-            android:foregroundServiceType="specialUse"
-            tools:ignore="ExportedService">
-            <property
-                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Provide an interface for third-party applications to actively invoke snapshot capturing." />
-        </service>
+        <!-- CLEAN：HttpService / ButtonService / ActivityService / EventService / TrackService /
+             ExposeService 已随 HTTP 服务、悬浮调试窗与第三方快照触发接口一并下线。
+             删除 ExposeService 同时消除了本 Manifest 中唯一的 exported="true" Service。 -->
 
         <service
             android:name=".service.GkdTileService"
@@ -207,53 +154,9 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
-        <service
-            android:name=".service.SnapshotTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_capture"
-            android:label="@string/capture_snapshot"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <meta-data
-                android:name="QS_TILE_URI"
-                android:value="gkd://page/2" />
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-        <service
-            android:name=".service.HttpTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_http"
-            android:label="@string/http_server"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <meta-data
-                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
-                android:value="true" />
-            <meta-data
-                android:name="QS_TILE_URI"
-                android:value="gkd://page/1" />
-
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-        <service
-            android:name=".service.ButtonTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_radio_button"
-            android:label="@string/snapshot_button"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <meta-data
-                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
-                android:value="true" />
-            <meta-data
-                android:name="QS_TILE_URI"
-                android:value="gkd://page/1" />
-
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
+        <!-- CLEAN：SnapshotTileService / HttpTileService / ButtonTileService /
+             ActivityTileService / EventTileService 已随对应功能下线。
+             保留的磁贴只有两个：GkdTileService（总开关）与 MatchTileService（规则匹配）。 -->
         <service
             android:name=".service.MatchTileService"
             android:exported="true"
@@ -271,40 +174,7 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
-        <service
-            android:name=".service.ActivityTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_layers"
-            android:label="@string/record_activity"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <meta-data
-                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
-                android:value="true" />
-            <meta-data
-                android:name="QS_TILE_URI"
-                android:value="gkd://page/1" />
-
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-        <service
-            android:name=".service.EventTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_event_list"
-            android:label="@string/record_a11y_event"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <meta-data
-                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
-                android:value="true" />
-            <meta-data
-                android:name="QS_TILE_URI"
-                android:value="gkd://page/1" />
-
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
+        <!-- CLEAN：ActivityTileService / EventTileService 已随悬浮调试窗下线；见上面的磁贴说明。 -->
 
     </application>
 

@@ -19,7 +19,6 @@ import li.gkd.app.data.AppRule
 import li.gkd.app.data.ResolvedRule
 import li.gkd.app.data.RuleStatus
 import li.gkd.app.platform.lifecycle.MainActivityVisibility
-import li.gkd.app.service.EventService
 import li.gkd.app.service.topAppIdFlow
 import li.gkd.app.priv.privilegeContextFlow
 import li.gkd.app.store.AppStore.actualBlockA11yAppList
@@ -104,7 +103,8 @@ class A11yRuleEngine(private val service: A11yCommonImpl) {
             }
             lastContentEventTime = a11yEvent.time
         }
-        EventService.logEvent(event)
+        // CLEAN：原 EventService.logEvent(event) 会把每个无障碍事件写入 a11y_event_log。
+        // 事件日志页面已随技术面收口下线，此处不再记录，避免无谓的数据库写入。
         if (META.debuggable) {
             Log.d(
                 "onNewA11yEvent",

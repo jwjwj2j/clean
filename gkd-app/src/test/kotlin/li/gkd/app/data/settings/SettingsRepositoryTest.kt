@@ -19,7 +19,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import java.io.IOException
 import li.gkd.app.util.json
-import li.gkd.app.util.SnapshotDisplayModeOption
 import org.junit.Test
 import java.nio.file.Files
 
@@ -38,12 +37,12 @@ class SettingsRepositoryTest {
             )
 
             repository.updateSettings {
-                it.copy(enableMatch = false, httpServerPort = 9123, snapshotDisplayMode = SnapshotDisplayModeOption.ByApp.value)
+                it.copy(enableMatch = false, appSort = 9123, enableStatusService = true)
             }
 
             assertFalse(repository.settings.value.enableMatch)
-            assertEquals(9123, repository.settings.value.httpServerPort)
-            assertEquals(2, repository.settings.value.snapshotDisplayMode)
+            assertEquals(9123, repository.settings.value.appSort)
+            assertTrue(repository.settings.value.enableStatusService)
             withTimeout(5_000) {
                 while (!directory.resolve("store.json").isFile) delay(10)
             }
@@ -55,8 +54,8 @@ class SettingsRepositoryTest {
                 ::emptySet,
             )
             assertFalse(recreated.settings.value.enableMatch)
-            assertEquals(9123, recreated.settings.value.httpServerPort)
-            assertEquals(2, recreated.settings.value.snapshotDisplayMode)
+            assertEquals(9123, recreated.settings.value.appSort)
+            assertTrue(recreated.settings.value.enableStatusService)
         } finally {
             writeScope.cancel()
             readScope.cancel()
@@ -123,11 +122,11 @@ class SettingsRepositoryTest {
     @Test
     fun failedRestoreKeepsLaterEditsAndIncrementsWithoutKeepingImportedValues() = runBlocking {
         withRepository { repository, directory ->
-            repository.updateSettings { it.copy(enableMatch = true, httpServerPort = 8000) }
+            repository.updateSettings { it.copy(enableMatch = true, appSort = 8000) }
             repository.incrementActionCount()
             repository.replaceBlockMatchAppList(setOf("local.app"))
             val entries = mapOf(
-                "store.json" to json.encodeToString(testDefaults().copy(enableMatch = false, httpServerPort = 9000)),
+                "store.json" to json.encodeToString(testDefaults().copy(enableMatch = false, appSort = 9000)),
                 "action_count.txt" to "100",
                 "block_match_app_list.txt" to "imported.app",
             )
@@ -136,7 +135,7 @@ class SettingsRepositoryTest {
                 repository.withBackupRestore(entries) {
                     coroutineScope {
                         val settings = async(Dispatchers.Default) {
-                            repository.updateSettings { it.copy(httpServerPort = 8123) }
+                            repository.updateSettings { it.copy(appSort = 8123) }
                             repository.updateBlockMatchAppList { it + "later.app" }
                         }
                         val increments = List(20) {
@@ -151,7 +150,7 @@ class SettingsRepositoryTest {
 
             assertTrue(failure is IOException)
             assertTrue(repository.settings.value.enableMatch)
-            assertEquals(8123, repository.settings.value.httpServerPort)
+            assertEquals(8123, repository.settings.value.appSort)
             assertEquals(21L, repository.actionCount.value)
             assertEquals(setOf("local.app", "later.app"), repository.blockMatchAppList.value)
             assertEquals("21", directory.resolve("action_count.txt").readText())
@@ -242,8 +241,8 @@ class SettingsRepositoryTest {
     }
 
     private fun testDefaults() = SettingsStore(
-        actionToast = "GKD",
-        customNotifTitle = "GKD",
+        actionToast = "CLEAN",
+        customNotifTitle = "CLEAN",
         updateChannel = 0,
     )
 }

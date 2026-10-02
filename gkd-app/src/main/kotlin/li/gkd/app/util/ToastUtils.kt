@@ -27,7 +27,6 @@ import li.gkd.app.data.ResolvedRule
 import li.gkd.app.permission.PermissionStates
 import li.gkd.app.platform.lifecycle.MainActivityVisibility
 import li.gkd.app.service.A11yService
-import li.gkd.app.service.OverlayWindowService
 import li.gkd.app.store.AppStore.actionCountFlow
 import li.gkd.app.store.AppStore.storeFlow
 import li.songe.codeorigin.CallSite
@@ -45,7 +44,9 @@ object ToastUtils {
             }
             return
         }
-        if (forced || MainActivityVisibility.isVisible || OverlayWindowService.isAnyAlive) {
+        // CLEAN：原判断还包含 OverlayWindowService.isAnyAlive（有悬浮调试窗存活时也允许提示）。
+        // 悬浮调试窗已下线；动作提示本身走无障碍叠加层，不受影响。
+        if (forced || MainActivityVisibility.isVisible) {
             Toaster.show(text)
         }
         if (loc.isNotEmpty()) {

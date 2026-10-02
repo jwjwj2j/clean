@@ -15,7 +15,6 @@ import li.gkd.app.appScope
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.util.LogUtils
 import li.gkd.app.util.ScreenUtils
-import li.gkd.app.snapshot.SnapshotCapture
 import li.gkd.app.data.subscription.SubscriptionResult
 import li.gkd.app.data.subscription.SubscriptionRepository
 import li.gkd.app.util.UpdateTimeOption
@@ -28,15 +27,11 @@ import li.gkd.selector.NodeAdapter
 
 
 fun onA11yFeatEvent(event: AccessibilityEvent) = event.run {
-    if (event.eventType == STATE_CHANGED) {
-        watchCaptureScreenshot()
-    }
+    // CLEAN：原 watchCaptureScreenshot()（按无障碍事件自动抓快照）已随快照功能下线
     if (event.packageName == launcherAppId) {
         watchAutoUpdateSubs()
     }
 }
-
-private var tempEventSelector = "" to (null as Selector?)
 private fun AccessibilityEvent.getEventAttr(name: String): Any? = when (name) {
     "name" -> className
     "desc" -> contentDescription
@@ -77,24 +72,9 @@ private object A11yEventNodeAdapter : NodeAdapter<AccessibilityEvent>() {
 
 private val a11yEventAdapter = A11yEventNodeAdapter
 
-context(event: AccessibilityEvent)
-private fun watchCaptureScreenshot() {
-    if (!storeFlow.value.captureScreenshot) return
-    if (SnapshotCapture.isCapturing) return
-    if (event.packageName != storeFlow.value.screenshotTargetAppId) return
-    if (tempEventSelector.first != storeFlow.value.screenshotEventSelector) {
-        val result = Selector.compile(storeFlow.value.screenshotEventSelector)
-        tempEventSelector = storeFlow.value.screenshotEventSelector to
-            (result as? SelectorCompileResult.Success)?.value
-    }
-    val selector = tempEventSelector.second ?: return
-    selector.match(event, a11yEventAdapter, MatchOptions(fastQuery = false)).let {
-        if (it == null) return
-    }
-    appScope.launchLogged {
-        SnapshotCapture.capture()
-    }
-}
+// CLEAN：watchCaptureScreenshot() 已删除。它曾用 SnapshotCapture.isCapturing 作为无障碍事件的
+// 处理守卫，并调用 SnapshotCapture.capture()；快照功能下线后该守卫不再需要。
+// 注意：A11yState.hasFeatureAction 与快照无关，必须保留（规则引擎依赖它维持存活）。
 
 private var lastUpdateSubsTime = 0L
 private var autoRefreshPending = false
@@ -131,43 +111,7 @@ private fun initRuleChangedLog() {
     }
 }
 
-private const val volumeChangedAction = "android.media.VOLUME_CHANGED_ACTION"
-private fun createVolumeReceiver() = object : BroadcastReceiver() {
-    var lastVolumeTriggerTime = -1L
-    override fun onReceive(context: Context?, intent: Intent?) {
-        if (intent?.action == volumeChangedAction) {
-            val t = System.currentTimeMillis()
-            if (t - lastVolumeTriggerTime > 3000 && !ScreenUtils.isScreenLock()) {
-                lastVolumeTriggerTime = t
-                appScope.launchLogged {
-                    SnapshotCapture.capture()
-                }
-            }
-        }
-    }
-}
-
-private fun initCaptureVolume() {
-    var captureVolumeReceiver: BroadcastReceiver? = null
-    val changeRegister: (Boolean) -> Unit = {
-        captureVolumeReceiver?.let(app::unregisterReceiver)
-        captureVolumeReceiver = if (it) {
-            createVolumeReceiver().apply {
-                ContextCompat.registerReceiver(
-                    app,
-                    this,
-                    IntentFilter(volumeChangedAction),
-                    ContextCompat.RECEIVER_EXPORTED
-                )
-            }
-        } else {
-            null
-        }
-    }
-    appScope.launch(Dispatchers.IO) {
-        storeFlow.mapState(appScope) { s -> s.captureVolumeChange }.collect(changeRegister)
-    }
-}
+// CLEAN：音量键触发抓快照（createVolumeReceiver / initCaptureVolume）已随快照功能整体删除。
 
 var isInteractive = true
     private set
@@ -209,6 +153,5 @@ private fun initScreenStateReceiver() {
 
 fun initA11yFeat() {
     initRuleChangedLog()
-    initCaptureVolume()
     initScreenStateReceiver()
 }

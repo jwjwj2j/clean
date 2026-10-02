@@ -30,7 +30,6 @@ import li.gkd.app.ui.share.statusText
 import li.gkd.app.priv.privilegeContextFlow
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.feature.settings.AboutRoute
-import li.gkd.app.feature.settings.AdvancedPageRoute
 import li.gkd.app.ui.BlockA11yAppListRoute
 import li.gkd.app.ui.style.titleItemPadding
 import li.gkd.app.util.AndroidTarget
@@ -232,9 +231,7 @@ fun useSettingsPage(): ScaffoldExt {
                 color = MaterialTheme.colorScheme.primary,
             )
 
-            GkSettingItem(title = UiStrings.advanced_settings, onClick = {
-                mainVm.navigatePage(AdvancedPageRoute)
-            })
+            // CLEAN：原「高级设置」入口已移除（HTTP、悬浮窗、GitHub cookie 等技术开关随页面一并下线）
             GkSettingItem(title = UiStrings.backup_restore, onClick = {
                 showBackupDialog = true
             })

@@ -18,16 +18,7 @@ fun <V, T : Option<V>> Iterable<T>.findOption(value: V): T {
     return find { it.value == value } ?: first()
 }
 
-sealed class SnapshotDisplayModeOption(override val value: Int, override val label: String) : Option<Int> {
-    override val options get() = objects
-
-    data object ByTime : SnapshotDisplayModeOption(1, UiStrings.snapshot_view_time)
-    data object ByApp : SnapshotDisplayModeOption(2, UiStrings.snapshot_view_app)
-
-    companion object {
-        val objects by lazy { listOf(ByTime, ByApp) }
-    }
-}
+// CLEAN: SnapshotDisplayModeOption（快照列表排序方式）已随快照功能删除。
 
 sealed class AppSortOption(override val value: Int, override val label: String) : Option<Int> {
     override val options get() = objects

@@ -42,8 +42,6 @@ import li.gkd.app.platform.lifecycle.RuntimeStateSynchronizer
 import li.gkd.app.priv.PrivilegeOwnerLifecycle
 import li.gkd.app.priv.gkdPrivilegeUiConfig
 import li.gkd.app.priv.initPrivilege
-import li.gkd.app.service.ExposeService
-import li.gkd.app.service.clearHttpSubs
 import li.gkd.app.service.initA11yWhiteAppList
 import li.gkd.app.store.AppStore
 import li.gkd.app.util.AndroidTarget
@@ -266,9 +264,7 @@ class App : Application() {
     private fun initializeRuntimeComponents() {
         initToast()
         AppStore.initialize()
-        appScope.launchLogged(Dispatchers.IO) {
-            ExposeService.initCommandFile()
-        }
+        // CLEAN：ExposeService（第三方触发快照）与 clearHttpSubs()（HTTP 订阅）已随快照 / HTTP 下线
         NotificationChannels.initialize()
         AppInfoRepository.initialize()
         initA11yFeat()
@@ -280,7 +276,6 @@ class App : Application() {
             SubscriptionRepository.initialize()
         }
         initA11yWhiteAppList()
-        clearHttpSubs()
         RuntimeStateSynchronizer.requestSync()
     }
 }

@@ -57,11 +57,8 @@ object NotificationDispatcher {
         return builder.build()
     }
 
-    fun post(notification: PostedNotification) {
-        if (!PermissionStates.notification.updateAndGet()) return
-        @SuppressLint("MissingPermission")
-        NotificationManagerCompat.from(app).notify(notification.id, build(notification))
-    }
+    // CLEAN：原 post(PostedNotification) 用于「快照已保存」通知；快照功能下线后没有任何
+    // 主动推送类通知，仅保留前台服务通知（startForeground）。
 
     private fun Service.canStartForeground(): Boolean {
         if (!AndroidTarget.UPSIDE_DOWN_CAKE) return true

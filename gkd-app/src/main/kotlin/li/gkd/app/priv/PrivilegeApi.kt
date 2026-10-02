@@ -9,7 +9,6 @@ import li.gkd.app.text.UiStrings
 import li.gkd.app.app
 import li.gkd.app.appScope
 import li.gkd.app.permission.PermissionStates
-import li.gkd.app.service.ExposeService
 import li.gkd.app.service.StatusService
 import li.gkd.app.service.currentAppBlocked
 import li.gkd.app.service.currentAppUseA11y
@@ -72,9 +71,9 @@ private suspend fun updatePrivilegeContext(serverInfo: PrivilegeServerInfo?) =
             }
             PermissionStates.refreshAll()
             if (StatusService.needRestart) {
-                privilegeContext.startForegroundService(
-                    ExposeService.exposeIntent(expose = -1),
-                )
+                // CLEAN：ExposeService 已下线，状态通知改由应用自身启动前台服务。
+                // （原实现借特权 shell 执行 am start-foreground-service 以绕过后台启动限制）
+                StatusService.start()
             }
             val delayMillis = if (app.justStarted) 1200L else 0L
             toast(UiStrings.privilege_service_connect_success, delayMillis = delayMillis)

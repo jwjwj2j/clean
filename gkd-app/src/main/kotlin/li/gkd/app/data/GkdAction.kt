@@ -10,7 +10,6 @@ import li.gkd.app.a11y.A11yRuntime
 import li.gkd.app.priv.privilegeContextFlow
 import li.gkd.app.priv.toHidden
 import li.gkd.app.service.A11yService
-import li.gkd.app.service.TrackService
 import li.gkd.app.util.ScreenUtils
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -42,7 +41,8 @@ sealed class ActionPerformer(val action: String) {
             node: AccessibilityNodeInfo,
             locationProps: RawSubscription.LocationProps,
         ): ActionResult {
-            TrackService.addA11yNodePosition(node)
+            // CLEAN：原 TrackService.addA11yNodePosition(node) 会叠加显示点击位置（调试用），
+            // 随悬浮调试窗一并下线。
             return ActionResult(
                 action = action,
                 result = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
@@ -66,7 +66,7 @@ sealed class ActionPerformer(val action: String) {
                     position = x to y,
                 )
             }
-            TrackService.addXyPosition(x, y)
+            // CLEAN：原 TrackService.addXyPosition(x, y) 已随悬浮调试窗下线
             return ActionResult(
                 action = action,
                 result = if (
@@ -111,7 +111,8 @@ sealed class ActionPerformer(val action: String) {
             node: AccessibilityNodeInfo,
             locationProps: RawSubscription.LocationProps,
         ): ActionResult {
-            TrackService.addA11yNodePosition(node)
+            // CLEAN：原 TrackService.addA11yNodePosition(node) 会叠加显示点击位置（调试用），
+            // 随悬浮调试窗一并下线。
             return ActionResult(
                 action = action,
                 result = node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK).apply {
@@ -141,7 +142,7 @@ sealed class ActionPerformer(val action: String) {
                     position = x to y,
                 )
             }
-            TrackService.addXyPosition(x, y)
+            // CLEAN：原 TrackService.addXyPosition(x, y) 已随悬浮调试窗下线
             return ActionResult(
                 action = action,
                 result = if (
@@ -238,7 +239,7 @@ sealed class ActionPerformer(val action: String) {
                     position = endX to endY,
                 )
             }
-            TrackService.addSwipePosition(startX, startY, endX, endY, swipeArg.duration)
+            // CLEAN：原 TrackService.addSwipePosition(...) 已随悬浮调试窗下线
             return if (
                 privilegeContextFlow.value?.swipe(
                     startX,

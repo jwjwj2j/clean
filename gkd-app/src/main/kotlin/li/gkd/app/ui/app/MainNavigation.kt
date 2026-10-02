@@ -29,8 +29,6 @@ import li.gkd.app.feature.log.ActionLogPage
 import li.gkd.app.feature.log.ActionLogRoute
 import li.gkd.app.feature.log.ActivityLogPage
 import li.gkd.app.feature.log.ActivityLogRoute
-import li.gkd.app.feature.settings.AdvancedPage
-import li.gkd.app.feature.settings.AdvancedPageRoute
 import li.gkd.app.ui.AppConfigPage
 import li.gkd.app.ui.AppConfigRoute
 import li.gkd.app.ui.BlockA11yAppListPage
@@ -43,12 +41,6 @@ import li.gkd.app.ui.ImagePreviewPage
 import li.gkd.app.ui.ImagePreviewRoute
 import li.gkd.app.ui.PrivilegeServicePage
 import li.gkd.app.ui.PrivilegeServiceRoute
-import li.gkd.app.feature.snapshot.SnapshotPage
-import li.gkd.app.feature.snapshot.SnapshotPageRoute
-import li.gkd.app.feature.snapshot.SnapshotPreviewPage
-import li.gkd.app.feature.snapshot.SnapshotPreviewRoute
-import li.gkd.app.feature.snapshot.SnapshotSettingsPage
-import li.gkd.app.feature.snapshot.SnapshotSettingsRoute
 import li.gkd.app.feature.subscription.SubsAppGroupListPage
 import li.gkd.app.feature.subscription.SubsAppGroupListRoute
 import li.gkd.app.feature.subscription.SubsAppListPage
@@ -92,11 +84,7 @@ private val mainRouteEntryProvider = entryProvider {
     entry<NotificationTextRoute>(metadata = editorTransitions) { NotificationTextPage() }
     entry<BlockA11ySetupRoute>(metadata = editorTransitions) { BlockA11ySetupPage() }
     entry<BlockA11yAppListRoute> { BlockA11yAppListPage() }
-    entry<AdvancedPageRoute> { AdvancedPage() }
     entry<PrivilegeServiceRoute> { PrivilegeServicePage() }
-    entry<SnapshotPageRoute> { SnapshotPage() }
-    entry<SnapshotPreviewRoute> { SnapshotPreviewPage(it) }
-    entry<SnapshotSettingsRoute> { SnapshotSettingsPage() }
     entry<A11YScopeAppListRoute> { A11yScopeAppListPage() }
     entry<ActivityLogRoute> { ActivityLogPage() }
     entry<A11yEventLogRoute> { A11yEventLogPage() }

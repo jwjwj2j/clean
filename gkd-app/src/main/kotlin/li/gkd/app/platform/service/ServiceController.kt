@@ -1,51 +1,13 @@
 package li.gkd.app.platform.service
 
-import li.gkd.app.service.ActivityService
-import li.gkd.app.service.ButtonService
-import li.gkd.app.service.EventService
-import li.gkd.app.service.HttpService
 import li.gkd.app.service.StatusService
 import li.gkd.app.store.AppStore
 
+// CLEAN: 原 ServiceController 还负责 HTTP 服务、悬浮截图按钮、活动监视与事件监视四个技术型
+// Service 的启停。这些 Service 已随快照 / HTTP / 悬浮调试窗一并下线，故这里只保留运行状态通知。
 object ServiceController {
-    fun setHttpEnabled(enabled: Boolean) = setEnabled(
-        enabled = enabled,
-        start = HttpService::start,
-        stop = HttpService::stop,
-    )
-
-    fun setSnapshotButtonEnabled(enabled: Boolean) = setEnabled(
-        enabled = enabled,
-        start = ButtonService::start,
-        stop = ButtonService::stop,
-    )
-
-    fun setActivityMonitorEnabled(enabled: Boolean) = setEnabled(
-        enabled = enabled,
-        start = ActivityService::start,
-        stop = ActivityService::stop,
-    )
-
-    fun setEventMonitorEnabled(enabled: Boolean) = setEnabled(
-        enabled = enabled,
-        start = EventService::start,
-        stop = EventService::stop,
-    )
-
     fun setStatusEnabled(enabled: Boolean) {
-        setEnabled(
-            enabled = enabled,
-            start = StatusService::start,
-            stop = StatusService::stop,
-        )
+        if (enabled) StatusService.start() else StatusService.stop()
         AppStore.updateSettings { it.copy(enableStatusService = enabled) }
-    }
-
-    private fun setEnabled(
-        enabled: Boolean,
-        start: () -> Unit,
-        stop: () -> Unit,
-    ) {
-        if (enabled) start() else stop()
     }
 }
