@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -549,7 +550,7 @@ private fun AppGridCell(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(gridCellHeight)
+            .heightIn(min = gridCellHeight)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -613,6 +614,8 @@ private fun AppGridCell(
                         .fillMaxWidth()
                         .padding(top = iconTextGap),
                     appInfo = appInfo,
+                    // 设计稿 §2.3：应用名最多两行，超出省略
+                    maxLines = 2,
                 )
             }
             Row(

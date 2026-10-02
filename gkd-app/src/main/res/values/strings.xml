@@ -38,7 +38,6 @@
     <string name="action_got_it">知道了</string>
     <string name="action_log_description">规则误触可定位关闭</string>
     <string name="action_log_open">打开触发记录页面</string>
-    <string name="action_log_recent_prefix">"最近触发: "</string>
     <string name="action_log_title">触发记录</string>
     <string name="action_notice">操作提示</string>
     <string name="action_ok">确定</string>
@@ -161,7 +160,6 @@
     <string name="image_requesting">请求中</string>
     <string name="installed_apps_default_enabled">已安装应用默认开启</string>
     <string name="intent_launch_failed_prefix">跳转失败\n</string>
-    <string name="item_toggle_description">切换%1$s</string>
     <string name="link_copy">复制链接</string>
     <string name="link_invalid">非法链接</string>
     <string name="link_open_external">外部打开</string>
@@ -336,8 +334,6 @@
     <string name="service_not_connected">服务未连接</string>
     <string name="service_partially_disabled_detail">局部关闭 · %1$s</string>
     <string name="service_started">%1$s已启动</string>
-    <string name="service_state">服务状态</string>
-    <string name="service_state_toggle">切换服务状态</string>
     <string name="service_stopped">%1$s已关闭</string>
     <string name="setting_follow">跟随</string>
     <string name="setting_follow_default">跟随默认</string>
@@ -355,7 +351,6 @@
     <string name="sort_filter">排序筛选</string>
     <string name="sort_title">排序</string>
     <string name="startup_failed">启动失败</string>
-    <string name="status_statistics_description">显示运行状态及统计数据</string>
     <string name="subscription_add_success">成功添加订阅</string>
     <string name="subscription_app_disabled">此订阅的应用开关已关闭</string>
     <string name="subscription_app_missing">订阅应用已不存在</string>
@@ -433,8 +428,6 @@
     <string name="whitelist_not_member">未加入白名单</string>
     <string name="whitelist_remove">从白名单中移除</string>
     <string name="whitelist_title">白名单</string>
-    <string name="work_mode_open">前往工作模式页面</string>
-    <string name="work_mode_title">工作模式</string>
     <string name="rule_control_view">查看控制</string>
     <string name="rule_control_title">控制关系</string>
     <string name="rule_control_own">自身设置</string>

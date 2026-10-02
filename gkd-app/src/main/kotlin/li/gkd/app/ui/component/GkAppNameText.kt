@@ -35,6 +35,11 @@ fun GkAppNameText(
     fallbackName: String? = null,
     style: TextStyle = LocalTextStyle.current,
     color: Color = Color.Unspecified,
+    /**
+     * 最多显示行数。默认 1（不换行、超出省略），保持既有调用点行为不变。
+     * CLEAN 应用网格需要 2 行（设计稿 §2.3），故把它参数化。
+     */
+    maxLines: Int = 1,
 ) {
     val info = appInfo ?: AppInfoRepository.appInfoMapFlow.collectAsStateWithLifecycle().value[appId]
     val showSystemIcon = info?.isSystem == true
@@ -51,8 +56,8 @@ fun GkAppNameText(
         Text(
             modifier = modifier,
             text = appName,
-            maxLines = 1,
-            softWrap = false,
+            maxLines = maxLines,
+            softWrap = maxLines > 1,
             overflow = TextOverflow.Ellipsis,
             style = style,
             color = color,
@@ -106,8 +111,8 @@ fun GkAppNameText(
             modifier = modifier,
             text = annotatedString,
             inlineContent = inlineContent,
-            maxLines = 1,
-            softWrap = false,
+            maxLines = maxLines,
+            softWrap = maxLines > 1,
             overflow = TextOverflow.Ellipsis,
             style = style,
             color = color,
