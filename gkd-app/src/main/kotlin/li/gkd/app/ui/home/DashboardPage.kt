@@ -45,10 +45,6 @@ import li.gkd.app.MainActivity
 import li.gkd.app.R
 import li.gkd.app.data.subscription.SubscriptionState
 import li.gkd.app.permission.PermissionStates
-import li.gkd.app.priv.PrivilegeServiceStatus
-import li.gkd.app.priv.privilegeContextFlow
-import li.gkd.app.priv.privilegeServiceStatusFlow
-import li.gkd.app.priv.uiAutomationFlow
 import li.gkd.app.service.A11yService
 import li.gkd.app.service.StatusService
 import li.gkd.app.service.a11yPartDisabledFlow
@@ -85,8 +81,7 @@ fun useDashboardPage(): ScaffoldExt {
     val actionCount by actionCountFlow.collectAsStateWithLifecycle()
     val subsStatus = ruleSummary.statusText(actionCount)
     val store by storeFlow.collectAsStateWithLifecycle()
-    val privilegeContext by privilegeContextFlow.collectAsStateWithLifecycle()
-    val privilegeServiceStatus by privilegeServiceStatusFlow.collectAsStateWithLifecycle()
+    // CLEAN：privilegeContext / privilegeServiceStatus 的状态收集已随特权入口封装移除
     val automatorMode by mainVm.automatorModeFlow.collectAsStateWithLifecycle()
     val pageScrollState = rememberColumnScrollState()
     val scrollBehavior = pageScrollState.scrollBehavior
