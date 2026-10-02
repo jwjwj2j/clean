@@ -1,92 +1,131 @@
 package li.gkd.app.ui.home
 
-import li.gkd.app.ui.component.GkPageBottomSpace
-import li.gkd.app.MainViewModel
-
-import androidx.activity.compose.LocalActivity
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
-import li.gkd.app.text.UiStrings
-import li.gkd.app.ui.component.GkTooltipIconButtonBox
-import li.gkd.app.ui.icon.GkAnimatedRocketIcon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import li.gkd.app.MainActivity
+import li.gkd.app.MainViewModel
 import li.gkd.app.R
+import li.gkd.app.data.appinfo.AppInfoRepository
 import li.gkd.app.data.subscription.SubscriptionState
+import li.gkd.app.domain.rule.RuleSummary
 import li.gkd.app.permission.PermissionStates
 import li.gkd.app.service.A11yService
-import li.gkd.app.service.StatusService
 import li.gkd.app.service.a11yPartDisabledFlow
 import li.gkd.app.service.switchAutomatorService
 import li.gkd.app.service.topAppIdFlow
-import li.gkd.app.store.AppStore.actualA11yScopeAppList
 import li.gkd.app.store.AppStore.actionCountFlow
+import li.gkd.app.store.AppStore.actualA11yScopeAppList
 import li.gkd.app.store.AppStore.storeFlow
+import li.gkd.app.text.UiStrings
 import li.gkd.app.ui.AppConfigRoute
-import li.gkd.app.ui.WebViewRoute
 import li.gkd.app.ui.app.showAccessRestrictedSettingsDialog
-import li.gkd.app.ui.style.itemHorizontalPadding
-import li.gkd.app.ui.style.itemVerticalPadding
-import li.gkd.app.ui.style.surfaceCardColors
-import li.gkd.app.util.HOME_PAGE_URL
-import li.gkd.app.ui.share.launchUi
-import li.gkd.app.ui.share.statusText
-import li.gkd.app.util.TimeUtils.throttle
-import li.gkd.db.RuleGroupType
-import li.gkd.app.ui.component.GkGroupNameText
 import li.gkd.app.ui.component.GkIcon
 import li.gkd.app.ui.component.GkIcons
+import li.gkd.app.ui.component.GkPageBottomSpace
 import li.gkd.app.ui.component.GkSwitch
 import li.gkd.app.ui.component.GkTopAppBar
 import li.gkd.app.ui.component.rememberColumnScrollState
-import li.gkd.app.ui.component.textSize
+import li.gkd.app.ui.style.cardGap
+import li.gkd.app.ui.style.cardHorizontalPadding
+import li.gkd.app.ui.style.cardPadding
+import li.gkd.app.ui.style.heroSwitchHeight
+import li.gkd.app.ui.style.heroSwitchWidth
+import li.gkd.app.ui.style.iconSize
+import li.gkd.app.ui.style.iconTextGap
+import li.gkd.app.ui.style.itemVerticalPadding
+import li.gkd.app.ui.style.lineGap
+import li.gkd.app.ui.style.pagePadding
+import li.gkd.app.ui.style.pillCorner
+import li.gkd.app.ui.style.pressDurationMs
+import li.gkd.app.ui.style.pressScale
+import li.gkd.app.ui.style.recordCardHeight
+import li.gkd.app.ui.style.statusPillHeight
+import li.gkd.app.ui.style.surfaceCardColors
+import li.gkd.app.util.TimeUtils.throttle
+
+// ------------------------------------------------------------------ 文案
+// CLEAN：设计稿 §1 新增的文案在本文件内以私有常量给出。
+// UiStrings 由 res/values/strings.xml 生成，而本次改造限定只允许修改本文件，
+// 不能新增字符串资源键；能命中既有键的文案仍然复用 UiStrings。
+private const val labelActionCount = "累计触发"
+private const val labelServiceRunning = "运行中"
+private const val labelServiceStopped = "已停止"
+private const val labelGlobalCount = "全局"
+private const val labelAppCount = "应用"
+private const val labelRuleCount = "规则"
+private const val labelRecentTrigger = "最近触发"
 
 @Composable
 fun useDashboardPage(): ScaffoldExt {
-    val context = LocalActivity.current as MainActivity
     val mainVm = MainViewModel.requireCurrent()
-    val vm = viewModel<DashboardVm>()
     val ruleSummary by SubscriptionState.ruleSummaryFlow.collectAsStateWithLifecycle()
     val actionCount by actionCountFlow.collectAsStateWithLifecycle()
-    val subsStatus = ruleSummary.statusText(actionCount)
     val store by storeFlow.collectAsStateWithLifecycle()
-    // CLEAN：privilegeContext / privilegeServiceStatus 的状态收集已随特权入口封装移除
     val automatorMode by mainVm.automatorModeFlow.collectAsStateWithLifecycle()
+    val a11yRunning by A11yService.isRunning.collectAsStateWithLifecycle()
+    val writeSecureSettings by PermissionStates.writeSecureSettings.stateFlow.collectAsStateWithLifecycle()
+    val a11yServiceEnabled by mainVm.a11yServiceEnabledFlow.collectAsStateWithLifecycle()
+    val a11yPartDisabled by a11yPartDisabledFlow.collectAsStateWithLifecycle()
+    val topAppId by topAppIdFlow.collectAsStateWithLifecycle()
+    val appInfoMap by AppInfoRepository.appInfoMapFlow.collectAsStateWithLifecycle()
+    val latestRecord by SubscriptionState.latestRecordFlow.collectAsStateWithLifecycle()
     val pageScrollState = rememberColumnScrollState()
     val scrollBehavior = pageScrollState.scrollBehavior
     val scrollState = pageScrollState.scrollState
     ResetPageScrollOnRequest(BottomNavItem.Dashboard, pageScrollState::resetScrollAndAwait)
+    // 运行状态判定沿用原「服务状态」卡片的既有逻辑：胶囊与开关都由无障碍服务的运行状态决定，
+    // 副标题（故障 / 局部关闭 / 未授权 / 已关闭）保留为胶囊的无障碍描述。
+    val serviceDetail = if (a11yRunning) {
+        UiStrings.a11y_running
+    } else if (a11yServiceEnabled) {
+        UiStrings.a11y_fault
+    } else if (writeSecureSettings) {
+        if (store.enableAutomator && a11yPartDisabled) {
+            UiStrings.a11y_partially_disabled
+        } else {
+            UiStrings.a11y_stopped
+        }
+    } else {
+        UiStrings.a11y_unauthorized
+    }
     return ScaffoldExt(
         navItem = BottomNavItem.Dashboard,
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -100,22 +139,18 @@ fun useDashboardPage(): ScaffoldExt {
                 // 特权能力按 docs/09 §6.3 封装：实现保留，但消费者看不到任何入口。
             })
         }) { contentPadding ->
-        val a11yRunning by A11yService.isRunning.collectAsStateWithLifecycle()
-        val manageRunning by StatusService.isRunning.collectAsStateWithLifecycle()
-        val writeSecureSettings by PermissionStates.writeSecureSettings.stateFlow.collectAsStateWithLifecycle()
-
         Column(
             modifier = Modifier
                 .verticalScroll(scrollState)
-                .padding(contentPadding)
-                .padding(horizontal = itemHorizontalPadding),
-            verticalArrangement = Arrangement.spacedBy(itemHorizontalPadding / 2)
+                .padding(contentPadding),
         ) {
             if (PermissionStates.appOpsRestrictedFlow.collectAsStateWithLifecycle().value) {
                 // CLEAN：原卡片点击会跳转 PrivilegeServicePage 去借特权解除受限；
                 // 特权入口已封装移除，这里改为纯提示，用户需在系统设置中自行处理。
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = pagePadding),
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
                 ) {
@@ -124,7 +159,7 @@ fun useDashboardPage(): ScaffoldExt {
                             .fillMaxWidth()
                             .padding(itemVerticalPadding),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(iconTextGap),
                     ) {
                         GkIcon(imageVector = GkIcons.WarningAmber)
                         Text(
@@ -134,393 +169,377 @@ fun useDashboardPage(): ScaffoldExt {
                         )
                     }
                 }
+                Spacer(Modifier.height(cardGap))
             }
-            if (store.useA11y || actualA11yScopeAppList.contains(topAppIdFlow.collectAsStateWithLifecycle().value)) {
-                ServiceStatusCard(
-                    subtitle = if (a11yRunning) {
-                        UiStrings.a11y_running
-                    } else if (mainVm.a11yServiceEnabledFlow.collectAsStateWithLifecycle().value) {
-                        UiStrings.a11y_fault
-                    } else if (writeSecureSettings) {
-                        if (store.enableAutomator && a11yPartDisabledFlow.collectAsStateWithLifecycle().value) {
-                            UiStrings.a11y_partially_disabled
-                        } else {
-                            UiStrings.a11y_stopped
-                        }
-                    } else {
-                        UiStrings.a11y_unauthorized
-                    },
-                    checked = a11yRunning,
-                    onCheckedChange = { newEnabled ->
-                        if (newEnabled && !PermissionStates.writeSecureSettings.value) {
-                            // CLEAN：原跳转「工作模式」页说明受限设置，该页已下线；
-                            // 改为复用应用级「受限设置」提示对话框。
-                            showAccessRestrictedSettingsDialog()
-                        } else {
-                            switchAutomatorService()
-                        }
-                    },
-                    mode = automatorMode.label,
-                )
-            }
-            // CLEAN：原 else 分支展示「自动化模式」（特权服务）状态卡片，并会在未连接时跳转
-            // PrivilegeServicePage。特权能力已按 docs/09 §6.3 封装 —— 保留实现但不给用户入口，
-            // 因此自动化模式在消费级产品中不可达，这里只保留无障碍服务状态卡片。
 
-            PageSwitchItemCard(
-                imageVector = GkIcons.Notifications,
-                title = UiStrings.persistent_notification,
-                subtitle = UiStrings.status_statistics_description,
-                checked = manageRunning && store.enableStatusService,
-                onCheckedChange = {
-                    if (it) {
-                        vm.scope.launchUi {
-                            mainVm.enableStatusService()
-                        }
+            DashboardHeroSection(
+                actionCount = actionCount,
+                running = a11yRunning,
+                serviceDetail = serviceDetail,
+                modeLabel = automatorMode.label,
+                // 与服务开关一致：仅在无障碍工作模式（或前台应用处于无障碍范围内）下提供开关。
+                showSwitch = store.useA11y || actualA11yScopeAppList.contains(topAppId),
+                onCheckedChange = { newEnabled ->
+                    if (newEnabled && !PermissionStates.writeSecureSettings.value) {
+                        // CLEAN：原跳转「工作模式」页说明受限设置，该页已下线；
+                        // 改为复用应用级「受限设置」提示对话框。
+                        showAccessRestrictedSettingsDialog()
                     } else {
-                        vm.stopStatusService()
+                        switchAutomatorService()
+                    }
+                },
+            )
+            Spacer(Modifier.height(cardGap))
+
+            DashboardStatRow(ruleSummary = ruleSummary)
+            // 设计稿 §1.2：副数据区卡片下方留 16dp 间距（令牌 cardGap 12dp + lineGap 4dp）。
+            Spacer(Modifier.height(cardGap + lineGap))
+
+            val record = latestRecord
+            TriggerRecordCard(
+                // CLEAN：日志页面（触发记录页）已随技术面收口下线，MainNavigation 里没有对应路由；
+                // 整卡点击沿用本页原有的「定位最近一条触发记录」导航，没有记录时整卡不可点。
+                onOpen = if (record == null) {
+                    null
+                } else {
+                    {
+                        mainVm.navigatePage(AppConfigRoute(appId = record.appId, focusLog = record))
+                    }
+                },
+            )
+            Spacer(Modifier.height(cardGap))
+
+            RecentTriggerCard(
+                // 前台应用名拿不到时退回包名（与 StatusService 的既有处理一致），不编造规则名。
+                appName = appInfoMap[topAppId]?.name ?: topAppId,
+                onOpen = if (topAppId.isEmpty()) {
+                    null
+                } else {
+                    {
+                        mainVm.navigatePage(AppConfigRoute(appId = topAppId))
                     }
                 },
             )
 
-            val latestRecord by SubscriptionState.latestRecordFlow.collectAsStateWithLifecycle()
-            val latestRecordDesc by SubscriptionState.latestRecordDescFlow.collectAsStateWithLifecycle()
-            TriggerOverviewCard(
-                subsStatus = subsStatus,
-                latestRecordDesc = latestRecordDesc,
-                latestRecordIsGlobal = latestRecord?.groupType == RuleGroupType.Global,
-                onOpenLatestRecord = {
-                    latestRecord?.let {
-                        mainVm.navigatePage(AppConfigRoute(appId = it.appId, focusLog = it))
-                    }
-                },
-            )
-
-            // CLEAN：原「活动记录」卡片依赖 ActivityService（悬浮调试窗），已随其下线；
-            // 原「了解 GKD / 打开文档」卡片指向 gkd.li 的 WebView 入口，也已移除。
             GkPageBottomSpace()
         }
     }
 }
 
+// ------------------------------------------------------------------ 主视觉（设计稿 §1.1）
 
 @Composable
-private fun PageItemCard(
-    imageVector: ImageVector,
-    title: String,
-    subtitle: String,
-    onClickLabel: String,
-    onClick: () -> Unit,
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics {
-                this.onClick(label = onClickLabel, action = null)
-            },
-        shape = MaterialTheme.shapes.large,
-        colors = surfaceCardColors,
-        onClick = throttle(fn = onClick)
-    ) {
-        IconTextCard(
-            imageVector = imageVector,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PageSwitchItemCard(
-    imageVector: ImageVector,
-    title: String,
-    subtitle: String,
-    checked: Boolean,
+private fun DashboardHeroSection(
+    actionCount: Long,
+    running: Boolean,
+    serviceDetail: String,
+    modeLabel: String,
+    showSwitch: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    val onClick = throttle { onCheckedChange(!checked) }
-    Card(
+    // 设计稿 §1.1：主视觉占屏幕上半部分，数字与说明整体垂直居中，左右留白至少 24dp
+    //（令牌组合 pagePadding 16dp + iconTextGap 8dp）。
+    val heroHeight = (LocalConfiguration.current.screenHeightDp / 2).dp
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .semantics(mergeDescendants = true) {
-                this.onClick(label = UiStrings.item_toggle_description(title), action = null)
-            },
-        shape = MaterialTheme.shapes.large,
-        colors = surfaceCardColors,
-        onClick = onClick,
+            .heightIn(min = heroHeight)
+            .padding(horizontal = pagePadding + iconTextGap),
     ) {
-        IconTextCard(
-            imageVector = imageVector,
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            GkSwitch(
-                checked = checked,
-                onCheckedChange = null,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ServiceStatusCard(
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    mode: String,
-    onModeClick: (() -> Unit)? = null,
-) {
-    val onStatusClick = throttle { onCheckedChange(!checked) }
-    // CLEAN：工作模式页面已随技术面收口下线，模式行改为只读展示（不再可点）
-    val modeRowClickModifier = if (onModeClick == null) {
-        Modifier
-    } else {
-        Modifier.clickable(
-            onClickLabel = UiStrings.work_mode_open,
-            onClick = throttle(onModeClick),
-        )
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = surfaceCardColors,
-    ) {
-        IconTextCard(
-            imageVector = GkIcons.Memory,
-            modifier = Modifier
-                .semantics(mergeDescendants = true) {}
-                .clickable(
-                    onClickLabel = UiStrings.service_state_toggle,
-                    onClick = onStatusClick,
-                ),
-        ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = UiStrings.service_state,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(8.dp))
-            GkSwitch(
-                checked = checked,
-                onCheckedChange = null,
-            )
-        }
-        HorizontalDivider(
-            modifier = Modifier.padding(
-                start = itemVerticalPadding + 40.dp + itemHorizontalPadding,
-                end = itemVerticalPadding,
-            ),
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics(mergeDescendants = true) {}
-                .then(modeRowClickModifier)
-                .padding(
-                    start = itemVerticalPadding,
-                    end = itemVerticalPadding,
-                    top = 10.dp,
-                    bottom = 10.dp,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GkIcon(
-                imageVector = GkIcons.AutoMode,
-                modifier = Modifier
-                    .padding(horizontal = 10.dp)
-                    .size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                contentDescription = null,
-            )
-            Spacer(modifier = Modifier.width(itemHorizontalPadding))
             Text(
-                text = UiStrings.work_mode_title,
-                style = MaterialTheme.typography.bodyMedium,
+                text = actionCount.toString(),
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(modifier = Modifier.weight(1f))
+            // 口径修正：actionCountFlow 是持久化累计计数（SettingsRepository.incrementActionCount
+            // 只做 it + 1，从不按天重置），因此这里必须写「累计触发」，不能标成「今日触发」。
             Text(
-                text = mode,
-                style = MaterialTheme.typography.bodyMedium,
+                text = labelActionCount,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            GkIcon(
-                imageVector = GkIcons.KeyboardArrowRight,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                contentDescription = null,
-            )
         }
-    }
-}
-
-@Composable
-private fun IconTextCard(
-    imageVector: ImageVector,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(itemVerticalPadding),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        GkIcon(
-            imageVector = imageVector,
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .padding(8.dp)
-                .size(24.dp),
-            tint = MaterialTheme.colorScheme.primary,
-            contentDescription = null,
-        )
-        Spacer(modifier = Modifier.width(itemHorizontalPadding))
-        content()
-    }
-}
-
-@Composable
-private fun TriggerOverviewCard(
-    subsStatus: String,
-    latestRecordDesc: String?,
-    latestRecordIsGlobal: Boolean,
-    onOpenActionLog: (() -> Unit)? = null,
-    onOpenLatestRecord: () -> Unit,
-) {
-    // CLEAN：操作日志页面已下线，此处卡片改为只读展示
-    val logClickModifier = if (onOpenActionLog == null) {
-        Modifier
-    } else {
-        Modifier.clickable(
-            onClickLabel = UiStrings.action_log_open,
-            onClick = throttle(onOpenActionLog),
-        )
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = surfaceCardColors,
-    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics(mergeDescendants = true) {}
-                .then(logClickModifier)
-                .padding(
-                    start = itemVerticalPadding,
-                    end = itemVerticalPadding,
-                    top = itemVerticalPadding,
-                    bottom = itemVerticalPadding / 2
-                ), verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.align(Alignment.TopEnd),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(iconTextGap),
         ) {
-            GkIcon(
-                imageVector = GkIcons.History,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .padding(8.dp)
-                    .size(24.dp),
-                tint = MaterialTheme.colorScheme.primary
+            ServiceStatusPill(
+                running = running,
+                serviceDetail = serviceDetail,
+                modeLabel = modeLabel,
             )
-            Spacer(modifier = Modifier.width(itemHorizontalPadding))
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = UiStrings.action_log_title,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text = UiStrings.action_log_description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            if (showSwitch) {
+                GkSwitch(
+                    checked = running,
+                    onCheckedChange = onCheckedChange,
+                    modifier = Modifier.size(heroSwitchWidth, heroSwitchHeight),
                 )
             }
-            GkIcon(
-                imageVector = GkIcons.KeyboardArrowRight,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                contentDescription = null,
-            )
         }
+    }
+}
+
+@Composable
+private fun ServiceStatusPill(
+    running: Boolean,
+    serviceDetail: String,
+    modeLabel: String,
+) {
+    Box(
+        modifier = Modifier
+            .height(statusPillHeight)
+            .clip(RoundedCornerShape(pillCorner))
+            .background(
+                if (running) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                }
+            )
+            .padding(horizontal = cardHorizontalPadding)
+            .semantics(mergeDescendants = true) {
+                // 可见文案只有运行中 / 已停止；原来的详细状态与工作模式信息保留给无障碍播报。
+                contentDescription = serviceDetail
+                stateDescription = modeLabel
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = if (running) labelServiceRunning else labelServiceStopped,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (running) {
+                MaterialTheme.colorScheme.onPrimary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+// ------------------------------------------------------------------ 副数据区（设计稿 §1.2）
+
+@Composable
+private fun DashboardStatRow(ruleSummary: RuleSummary) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = pagePadding),
+        horizontalArrangement = Arrangement.spacedBy(cardGap),
+    ) {
+        DashboardStatCard(
+            modifier = Modifier.weight(1f),
+            value = ruleSummary.globalRules.size.toString(),
+            label = labelGlobalCount,
+        )
+        DashboardStatCard(
+            modifier = Modifier.weight(1f),
+            value = ruleSummary.appSize.toString(),
+            label = labelAppCount,
+        )
+        DashboardStatCard(
+            modifier = Modifier.weight(1f),
+            value = ruleSummary.appIdToRules.values.sumOf { it.size }.toString(),
+            label = labelRuleCount,
+        )
+    }
+}
+
+@Composable
+private fun DashboardStatCard(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = surfaceCardColors,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = itemVerticalPadding)
+                .padding(horizontal = cardHorizontalPadding, vertical = itemVerticalPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            AnimatedVisibility(subsStatus.isNotEmpty()) {
-                Text(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    text = subsStatus,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
 
-            if (latestRecordDesc != null) {
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .clip(MaterialTheme.shapes.extraSmall)
-                        .clickable(
-                            onClickLabel = UiStrings.app_rule_summary_open,
-                            onClick = throttle(onOpenLatestRecord),
-                        )
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        GkGroupNameText(
-                            modifier = Modifier.fillMaxWidth(),
-                            preText = UiStrings.action_log_recent_prefix,
-                            isGlobal = latestRecordIsGlobal,
-                            text = latestRecordDesc,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
+// ------------------------------------------------------------------ 触发记录（设计稿 §1.3）
+
+@Composable
+private fun TriggerRecordCard(onOpen: (() -> Unit)?) {
+    val interactionSource = remember { MutableInteractionSource() }
+    if (onOpen == null) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = pagePadding)
+                .height(recordCardHeight),
+            shape = MaterialTheme.shapes.medium,
+            colors = surfaceCardColors,
+        ) {
+            TriggerRecordCardContent()
+        }
+    } else {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = pagePadding)
+                .height(recordCardHeight)
+                .pressScaleEffect(interactionSource)
+                .semantics {
+                    onClick(label = UiStrings.action_log_open, action = null)
+                },
+            shape = MaterialTheme.shapes.medium,
+            colors = surfaceCardColors,
+            onClick = throttle(onOpen),
+            interactionSource = interactionSource,
+        ) {
+            TriggerRecordCardContent()
+        }
+    }
+}
+
+@Composable
+private fun TriggerRecordCardContent() {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = cardPadding),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GkIcon(
+            imageVector = GkIcons.History,
+            modifier = Modifier.size(iconSize),
+            tint = MaterialTheme.colorScheme.primary,
+            contentDescription = null,
+        )
+        Spacer(Modifier.width(iconTextGap))
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = UiStrings.action_log_title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = UiStrings.action_log_description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(iconTextGap))
+        GkIcon(
+            imageVector = GkIcons.KeyboardArrowRight,
+            modifier = Modifier.size(iconSize),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            contentDescription = null,
+        )
+    }
+}
+
+// ------------------------------------------------------------------ 最近触发（设计稿 §1.4）
+
+@Composable
+private fun RecentTriggerCard(
+    appName: String,
+    onOpen: (() -> Unit)?,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = pagePadding),
+        shape = MaterialTheme.shapes.medium,
+        colors = surfaceCardColors,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(cardPadding),
+        ) {
+            Text(
+                text = labelRecentTrigger,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(lineGap))
+            val rowModifier = if (onOpen == null) {
+                Modifier
+            } else {
+                Modifier
+                    .pressScaleEffect(interactionSource)
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(),
+                        onClickLabel = UiStrings.app_rule_summary_open,
+                        onClick = throttle(onOpen),
+                    )
+            }
+            Row(
+                modifier = rowModifier
+                    .fillMaxWidth()
+                    .padding(vertical = lineGap),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = appName.ifEmpty { UiStrings.data_empty },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (appName.isEmpty()) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
+                if (onOpen != null) {
                     GkIcon(
                         imageVector = GkIcons.KeyboardArrowRight,
-                        modifier = Modifier.textSize(style = MaterialTheme.typography.bodyMedium),
-                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(iconSize),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        contentDescription = null,
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(itemVerticalPadding))
         }
+    }
+}
+
+// ------------------------------------------------------------------ 交互
+
+/**
+ * 设计稿 §4.4：点击缩放到 `pressScale`(0.98)，时长 `pressDurationMs`(120)。
+ *
+ * 只做视觉过渡：不改变可点性、不加点击等待，也不在动画期间禁用控件（AGENTS.md「UI 交互与过渡动画」）。
+ */
+@Composable
+private fun Modifier.pressScaleEffect(interactionSource: MutableInteractionSource): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) pressScale else 1f,
+        animationSpec = tween(durationMillis = pressDurationMs),
+        label = "pressScale",
+    )
+    return this.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
     }
 }

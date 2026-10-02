@@ -33,8 +33,8 @@ import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.ui.share.LocalDarkTheme
 import li.gkd.app.ui.share.LocalIsTalkbackEnabled
 
-private val LightColorScheme = lightColorScheme()
-private val DarkColorScheme = darkColorScheme()
+// CLEAN：配色方案改由 style/AppColor.kt 提供（CleanDarkColorScheme / CleanLightColorScheme），
+// 圆角与字号由 style/Dimens.kt、style/Typography.kt 提供。
 
 private fun createAppearanceFlow(scope: CoroutineScope) =
     storeFlow
@@ -61,7 +61,7 @@ fun AppTheme(
     }
     // CLEAN：原「动态配色」开关已移除，固定使用 CLEAN 自己的配色方案，
     // 不再随壁纸取色（Material You），以保证品牌观感一致。
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = if (darkTheme) CleanDarkColorScheme else CleanLightColorScheme
 
     val activity = LocalActivity.current
     if (activity != null) {
@@ -93,6 +93,10 @@ fun AppTheme(
     ) {
         MaterialTheme(
             colorScheme = colorScheme.animation(),
+            // CLEAN：圆角与字号统一由令牌驱动（设计稿 §4.1 / §4.3），
+            // 这样 Material 组件（Card / Button / Chip / TextField）无需逐处指定。
+            shapes = CleanShapes,
+            typography = CleanTypography,
             content = content,
         )
     }

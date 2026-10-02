@@ -26,6 +26,7 @@ import li.gkd.app.feature.subscription.SubsGlobalGroupExcludeRoute
 import li.gkd.app.feature.subscription.SubsGlobalGroupListPage
 import li.gkd.app.feature.subscription.SubsGlobalGroupListRoute
 import li.gkd.app.ui.AppConfigPage
+import li.gkd.app.ui.style.pageTransitionDurationMs
 import li.gkd.app.ui.AppConfigRoute
 import li.gkd.app.ui.ImagePreviewPage
 import li.gkd.app.ui.ImagePreviewRoute
@@ -82,17 +83,25 @@ fun MainNavigation() {
         backStack = mainVm.backStack,
         onBack = mainVm::popPage,
         entryProvider = mainRouteEntryProvider,
+        // CLEAN：页面切换统一为 fade + slide，200ms（设计稿 §4.4）。
+        // 工具类 App 以稳为主，不做弹跳/旋转。
         transitionSpec = {
-            slideInHorizontally(initialOffsetX = { it }) togetherWith
-                    slideOutHorizontally(targetOffsetX = { -it })
+            (slideInHorizontally(tween(pageTransitionDurationMs)) { it } +
+                    fadeIn(tween(pageTransitionDurationMs))) togetherWith
+                    (slideOutHorizontally(tween(pageTransitionDurationMs)) { -it / 8 } +
+                            fadeOut(tween(pageTransitionDurationMs)))
         },
         popTransitionSpec = {
-            slideInHorizontally(initialOffsetX = { -it }) togetherWith
-                    slideOutHorizontally(targetOffsetX = { it })
+            (slideInHorizontally(tween(pageTransitionDurationMs)) { -it / 8 } +
+                    fadeIn(tween(pageTransitionDurationMs))) togetherWith
+                    (slideOutHorizontally(tween(pageTransitionDurationMs)) { it } +
+                            fadeOut(tween(pageTransitionDurationMs)))
         },
         predictivePopTransitionSpec = {
-            slideInHorizontally(initialOffsetX = { -it }) togetherWith
-                    slideOutHorizontally(targetOffsetX = { it })
+            (slideInHorizontally(tween(pageTransitionDurationMs)) { -it / 8 } +
+                    fadeIn(tween(pageTransitionDurationMs))) togetherWith
+                    (slideOutHorizontally(tween(pageTransitionDurationMs)) { it } +
+                            fadeOut(tween(pageTransitionDurationMs)))
         },
     )
 }

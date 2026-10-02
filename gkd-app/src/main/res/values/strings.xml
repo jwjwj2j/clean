@@ -213,6 +213,8 @@
     <string name="permission_start_operations">启动相关操作权限</string>
     <string name="permission_write_secure_settings">写入安全设置权限</string>
     <string name="persistent_notification">常驻通知</string>
+    <!-- CLEAN：常驻通知开关从首页移到设置页（首页改为数据仪表盘后不再有它的位置） -->
+    <string name="persistent_notification_description">在通知栏常驻显示服务运行状态</string>
     <string name="privacy_policy">隐私政策</string>
     <string name="privilege_service">特权服务</string>
     <string name="privilege_service_connect_success">特权服务连接成功</string>

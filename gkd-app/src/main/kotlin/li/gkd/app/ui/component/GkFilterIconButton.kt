@@ -22,7 +22,7 @@ fun GkFilterIconButton(
 ) {
     Box(modifier) {
         GkIconButton(
-            imageVector = GkIcons.Sort,
+            imageVector = GkIcons.FilterList,
             onClick = onClick,
             enabled = enabled,
             contentDescription = contentDescription,

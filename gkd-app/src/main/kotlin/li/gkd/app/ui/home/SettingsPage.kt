@@ -17,6 +17,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import li.gkd.app.text.UiStrings
 import li.gkd.app.store.AppStore
 import li.gkd.app.store.AppStore.storeFlow
+import li.gkd.app.platform.service.ServiceController
 import li.gkd.app.ui.style.titleItemPadding
 import li.gkd.app.util.DarkThemeOption
 import li.gkd.app.util.findOption
@@ -101,6 +102,26 @@ fun useSettingsPage(): ScaffoldExt {
 
             // CLEAN：原「局部禁用无障碍」（enableBlockA11yAppList）、其设置向导与白名单页面
             // 属于技术面，已随相关页面下线。
+
+            // CLEAN：常驻通知开关从首页移到此处。首页改为数据仪表盘后不再有它的位置，
+            // 但它是 ServiceController.setStatusEnabled 的**唯一用户可见入口**，
+            // 直接删掉等于丢功能，因此保留在设置页的「通用」分组里。
+            GkTextSwitch(
+                title = UiStrings.persistent_notification,
+                subtitle = UiStrings.persistent_notification_description,
+                checked = store.enableStatusService,
+                onCheckedChange = { enabled ->
+                    actionScope.launchUi {
+                        if (enabled) {
+                            // 需要「特殊用途前台服务」与「通知」两项权限；
+                            // MainViewModel.enableStatusService() 内部负责申请。
+                            mainVm.enableStatusService()
+                        } else {
+                            ServiceController.setStatusEnabled(false)
+                        }
+                    }
+                },
+            )
 
             Text(
                 text = UiStrings.settings_appearance,

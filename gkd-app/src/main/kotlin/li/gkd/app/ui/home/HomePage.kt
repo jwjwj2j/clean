@@ -2,14 +2,17 @@ package li.gkd.app.ui.home
 
 import li.gkd.app.MainViewModel
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,6 +22,7 @@ import kotlinx.serialization.Serializable
 import li.gkd.app.text.UiStrings
 import li.gkd.app.ui.component.GkIcon
 import li.gkd.app.ui.component.GkIcons
+import li.gkd.app.ui.style.iconSize
 
 sealed class BottomNavItem(
     val key: Int,
@@ -89,20 +93,36 @@ fun HomePage() {
             topBar = page.topBar,
             floatingActionButton = page.floatingActionButton,
             bottomBar = {
-                NavigationBar {
+                // CLEAN：底部导航统一配色与尺寸（设计稿 §3.2 / §3.3 / §4.1）
+                // 图标 24dp（Material3 Icon 的默认尺寸，显式写出以防被主题缩放）；
+                // 选中用强调青，未选中用次要灰。
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ) {
                     BottomNavItem.allSubObjects.forEach { navItem ->
                         NavigationBarItem(
                             selected = navItem == selectedTab,
                             modifier = Modifier,
                             onClick = { mainVm.handleClickTab(navItem) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
                             icon = {
                                 GkIcon(
                                     imageVector = navItem.icon,
+                                    modifier = Modifier.size(iconSize),
                                     contentDescription = null,
                                 )
                             },
                             label = {
-                                Text(text = navItem.label)
+                                Text(
+                                    text = navItem.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
                             },
                         )
                     }
