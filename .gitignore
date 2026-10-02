@@ -20,3 +20,8 @@ kotlin-js-store
 *.zip
 local.properties
 libs.versions.updates.toml
+
+# CLEAN 改造工作产物
+.clean-staging/
+**/activation/ActivationSecret.kt
+keygen/secret.key

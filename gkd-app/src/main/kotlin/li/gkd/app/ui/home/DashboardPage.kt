@@ -263,14 +263,8 @@ fun useDashboardPage(): ScaffoldExt {
                     })
             }
 
-            PageItemCard(
-                title = UiStrings.gkd_learn_more,
-                subtitle = UiStrings.documentation_description,
-                imageVector = GkIcons.HelpOutline,
-                onClickLabel = UiStrings.documentation_open,
-                onClick = {
-                    mainVm.navigatePage(WebViewRoute(initUrl = HOME_PAGE_URL))
-                })
+            // CLEAN：原「了解 GKD / 打开文档」卡片已删除（指向 gkd.li 的 WebView 入口，
+            // 且 WebView 页面本身在消费级收口中移除）。
             GkPageBottomSpace()
         }
     }

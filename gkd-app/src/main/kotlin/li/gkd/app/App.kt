@@ -96,8 +96,10 @@ data class AppMeta(
     val commitUrl = "https://github.com/gkd-kit/gkd/".run {
         plus(if (tagName != null) "tree/$tagName" else "commit/$commitId")
     }
-    val isGkdChannel get() = channel == "gkd"
-    val updateEnabled get() = isGkdChannel
+    // CLEAN 单变体化后 channel 固定为 "clean"（见 gkd-app/build.gradle.kts 的 defaultConfig）。
+    // 自更新已关闭，updateEnabled 仅保留给尚未清理的调用点，恒为 false。
+    val isCleanChannel get() = channel == "clean"
+    val updateEnabled get() = false
     val isBeta get() = versionName.contains("beta")
 }
 

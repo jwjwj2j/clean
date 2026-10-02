@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" debug_suffix="true">GKD</string>
+    <string name="app_name" debug_suffix="true">CLEAN</string>
     <string name="a11y_desc">基于高级选择器和订阅规则的屏幕自定义点击服务\n\n通过自定义选择器和订阅规则，能帮助你实现点击任意位置控件，自定义快捷操作等高级功能</string>
     <string name="import_backup" debug_suffix="true">导入备份</string>
     <string name="capture_snapshot" debug_suffix="true">捕获快照</string>
@@ -35,7 +35,7 @@
     <string name="a11y_stopped">无障碍已关闭</string>
     <string name="a11y_touch_stutter">短暂触摸卡顿</string>
     <string name="a11y_unauthorized">无障碍未授权</string>
-    <string name="a11y_usage_description">GKD 请求使用系统「无障碍 API」获取屏幕信息, 以此基于用户自定义订阅规则执行自动化操作</string>
+    <string name="a11y_usage_description">CLEAN 需要开启无障碍权限，才能读取屏幕内容，并按规则自动跳过广告和弹窗</string>
     <string name="a11y_whitelist">无障碍白名单</string>
     <string name="a11y_whitelist_follow_apps">已设置为跟随应用白名单</string>
     <string name="a11y_whitelist_independent">已设置为独立无障碍白名单</string>
@@ -170,7 +170,7 @@
     <string name="automation_running">自动化正在运行</string>
     <string name="automation_scope_compatibility_hint">若不兼容可配置「局部无障碍」</string>
     <string name="automation_service_occupied">自动化服务被占用</string>
-    <string name="automation_service_occupied_description">自动化服务已被其他进程或应用占用，无法启动。此服务同一时间只能由一个使用方运行。\n\n由于 Android 系统限制，GKD 无法获知具体是哪个进程或应用占用了该服务。\n\n请停止其他工具正在运行的自动化任务或测试服务，然后重试。若无法确定占用来源，可尝试重启设备后再启动 GKD 自动化。</string>
+    <string name="automation_service_occupied_description">自动化服务已被其他进程或应用占用，无法启动。此服务同一时间只能由一个使用方运行。\n\n由于 Android 系统限制，CLEAN 无法获知具体是哪个进程或应用占用了该服务。\n\n请停止其他工具正在运行的自动化任务或测试服务，然后重试。若无法确定占用来源，可尝试重启设备后再启动 CLEAN 自动化。</string>
     <string name="automation_start_failed">自动化启动失败：%1$s</string>
     <string name="automation_started">自动化已启动</string>
     <string name="automation_state_check_failed">自动化状态检测失败：%1$s</string>
@@ -298,7 +298,7 @@
     <string name="directory_temp_create_failed">无法创建临时目录: %1$s</string>
     <string name="disabled">已禁用</string>
     <string name="documentation_description">查阅规则文档和常见问题</string>
-    <string name="documentation_open">打开 GKD 文档页面</string>
+    <string name="documentation_open">打开 CLEAN 文档页面</string>
     <string name="donate">捐赠支持</string>
     <string name="download_abort">终止下载</string>
     <string name="download_complete">下载完毕</string>
@@ -337,11 +337,11 @@
     <string name="external_call_notification_description">任务完成后自动关闭</string>
     <string name="external_call_processing">正在处理外部调用</string>
     <string name="external_call_unknown">未知调用: expose=%1$s data=%2$s</string>
-    <string name="feedback_app_issue_prefix">如果您已经确信是 GKD 应用本体的问题</string>
+    <string name="feedback_app_issue_prefix">如果您已经确信是 CLEAN 应用本体的问题</string>
     <string name="feedback_continue_suffix">，可点击下方继续反馈</string>
     <string name="feedback_notice">反馈须知</string>
     <string name="feedback_report">问题反馈</string>
-    <string name="feedback_scope">GKD 默认不携带任何规则，只接受应用本体功能相关的反馈</string>
+    <string name="feedback_scope">CLEAN 默认不携带任何规则，只接受应用本体功能相关的反馈</string>
     <string name="feedback_subscription_notice">请先判断是不是第三方规则订阅的问题，如果是，您应该向规则提供者反馈，而不是在此处反馈。</string>
     <string name="feedback_thanks_prefix">感谢您愿意花时间反馈，</string>
     <string name="feedback_title">反馈</string>
@@ -358,7 +358,7 @@
     <string name="github_cookie_expired">检测到 cookie 失效, 请更换</string>
     <string name="github_cookie_input_hint">请输入 Github Cookie</string>
     <string name="github_cookie_label">GitHub Cookie</string>
-    <string name="gkd_learn_more">了解 GKD</string>
+    <string name="clean_learn_more">了解 CLEAN</string>
     <string name="global_rule_add">添加全局规则</string>
     <string name="global_rule_app_switch_batch_confirmation">对 %1$s 个应用执行%2$s？仅影响此全局规则在这些应用内的设置，保留规则组总开关和页面排除。</string>
     <string name="global_rule_app_switch_set">设置应用开关</string>
@@ -511,7 +511,7 @@
     <string name="privilege_service_connecting">正在连接特权服务...</string>
     <string name="privilege_service_connection_lost">特权服务连接已中断，请检查</string>
     <string name="privilege_service_disconnected">特权服务已断开</string>
-    <string name="privilege_service_help_description">此页面用于启动和管理特权服务。连接后，可为 GKD 提供自动化、必要权限授予等需要系统级能力的功能；断开后，依赖特权服务的功能将不可用。</string>
+    <string name="privilege_service_help_description">此页面用于启动和管理特权服务。连接后，可为 CLEAN 提供自动化、必要权限授予等需要系统级能力的功能；断开后，依赖特权服务的功能将不可用。</string>
     <string name="privilege_service_open">前往特权服务页面</string>
     <string name="privilege_service_project_prefix">"特权服务基于开源项目 "</string>
     <string name="privilege_service_project_suffix">" (自有特权运行时) 实现不依赖外部授权器提权"</string>
@@ -523,7 +523,7 @@
     <string name="progress_fraction">%1$s / %2$s</string>
     <string name="query_apps_permission_notice">如需显示所有应用\n请授予「读取应用列表权限」</string>
     <string name="recents_open">打开最近任务</string>
-    <string name="recents_lock_manual_hint">请手动打开最近任务界面，锁定 GKD 的任务卡片</string>
+    <string name="recents_lock_manual_hint">请手动打开最近任务界面，锁定 CLEAN 的任务卡片</string>
     <string name="recents_lock">在「最近任务」锁定</string>
     <string name="remote_category_delete_unsupported">远程订阅类别不可删除</string>
     <string name="remote_category_edit_unsupported">远程订阅类别不可编辑</string>
@@ -638,7 +638,7 @@
     <string name="saving">保存中</string>
     <string name="saving_progress">正在保存...</string>
     <string name="scoped_a11y_help">局部无障碍帮助</string>
-    <string name="scoped_a11y_help_behavior">为这些应用开启局部无障碍后，在自动化模式下切换到该应用时，GKD 会临时关闭自动化，改用无障碍服务；切换到未开启局部无障碍的应用后恢复自动化，无需手动切换。\n\n</string>
+    <string name="scoped_a11y_help_behavior">为这些应用开启局部无障碍后，在自动化模式下切换到该应用时，CLEAN 会临时关闭自动化，改用无障碍服务；切换到未开启局部无障碍的应用后恢复自动化，无需手动切换。\n\n</string>
     <string name="scoped_a11y_help_problem">某些应用会混淆无障碍节点信息，导致自动化模式无法正常识别和操作页面。\n\n</string>
     <string name="scoped_a11y_help_scope">仅需为自动化模式下无法正常工作的应用开启。</string>
     <string name="screen_nodes_unavailable">界面没有节点信息</string>
@@ -877,7 +877,7 @@
     <string name="target_app_id_hint">请输入目标应用ID</string>
     <string name="template_text_input_hint">请输入内容，支持变量替换</string>
     <string name="terms_accept_conjunction">」和「</string>
-    <string name="terms_accept_prefix">感谢使用 GKD！您需要阅读并同意「</string>
+    <string name="terms_accept_prefix">感谢使用 CLEAN！您需要阅读并同意「</string>
     <string name="terms_accept_suffix">」才能继续使用, 请仔细阅读相关内容</string>
     <string name="terms_notice">使用声明</string>
     <string name="terms_of_use">使用协议</string>
@@ -952,7 +952,7 @@
     <string name="version_info">版本信息</string>
     <string name="version_name">版本名称</string>
     <string name="version_prefixed">v%1$s</string>
-    <string name="webview_outdated_notice">检测到您的系统内置浏览器版本(%1$s)过低, 可能无法正常浏览网页文档\n\n建议自行升级版本后重启 GKD 再查看文档, 或点击右上角后在外部浏览器打开查阅\n\n若能正常浏览文档请忽略此项提示</string>
+    <string name="webview_outdated_notice">检测到您的系统内置浏览器版本(%1$s)过低, 可能无法正常浏览网页文档\n\n建议自行升级版本后重启 CLEAN 再查看文档, 或点击右上角后在外部浏览器打开查阅\n\n若能正常浏览文档请忽略此项提示</string>
     <string name="webview_reload">刷新页面</string>
     <string name="wechat_unavailable">请检查微信是否安装或禁用</string>
     <string name="whitelist_add">加入白名单</string>

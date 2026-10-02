@@ -26,7 +26,6 @@ import li.gkd.app.META
 import li.gkd.app.MainActivity
 import li.gkd.app.ui.component.GkAlertDialog
 import li.gkd.app.ui.component.GkTextListDialog
-import li.gkd.app.util.PLAY_STORE_URL
 import li.gkd.app.util.ShortUrlSet
 import li.gkd.app.util.format
 import li.gkd.app.util.getShareApkFile
@@ -101,49 +100,17 @@ private fun ShareAppDialog(
     val context = LocalActivity.current as MainActivity
     val mainVm = MainViewModel.requireCurrent()
     if (visible) {
-        val exportPlayTipText = buildAnnotatedString {
-            append(UiStrings.apk_google_services_required)
-            withLink(
-                LinkAnnotation.Url(
-                    ShortUrlSet.URL13,
-                    TextLinkStyles(
-                        style = SpanStyle(
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    )
-                )
-            ) {
-                append(UiStrings.apk_download_official_link)
-            }
-            append(UiStrings.apk_continue_suffix)
-        }
+        // CLEAN 已移除 Play 渠道，原「导出 APK 时提示 Google 服务依赖」的说明文案不再需要
         GkTextListDialog(
             onDismiss = onDismissRequest,
             textList = listOf(
                 UiStrings.action_share to mainVm.scope.launchUiAction(Dispatchers.IO) {
-                    if (!META.isGkdChannel) {
-                        if (!mainVm.dialogRequests.confirm(
-                            title = UiStrings.share_notice,
-                            text = exportPlayTipText,
-                            confirmText = UiStrings.action_continue,
-                        )) return@launchUiAction
-                    }
                     context.shareFile(getShareApkFile(), UiStrings.apk_share)
                 },
                 UiStrings.action_save_to_downloads to mainVm.scope.launchUiAction(Dispatchers.IO) {
-                    if (!META.isGkdChannel) {
-                        if (!mainVm.dialogRequests.confirm(
-                            title = UiStrings.save_notice,
-                            text = exportPlayTipText,
-                            confirmText = UiStrings.action_continue,
-                        )) return@launchUiAction
-                    }
                     context.saveFileToDownloads(getShareApkFile())
                 },
-                UiStrings.google_play_label to {
-                    mainVm.openUrl(PLAY_STORE_URL)
-                },
+                // CLEAN 已移除 Google Play 渠道，原「Google Play 好评」入口一并删除
             )
         )
     }

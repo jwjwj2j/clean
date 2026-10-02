@@ -1,16 +1,8 @@
-import com.android.build.api.artifact.SingleArtifact
-import com.android.build.api.variant.ApplicationAndroidComponentsExtension
-import com.android.build.api.variant.ApplicationVariant
 import com.android.build.api.variant.impl.VariantOutputImpl
-import li.gkd.gradle.BuildAssetAdapter
-import li.gkd.gradle.BuildAssetVariant
-import li.gkd.gradle.GenerateSourcePathsTask
 import li.gkd.gradle.GenerateUiStringsTask
 import li.gkd.gradle.buildProperty
-import li.gkd.gradle.configureBuildAssets
 import li.gkd.gradle.gitInfo
 import li.gkd.gradle.readDebugSuffixResources
-import li.gkd.gradle.releaseBuildKey
 
 val gitInfo = project.gitInfo
 val debugSuffixResources = project.readDebugSuffixResources()
@@ -27,9 +19,10 @@ plugins {
 android {
     namespace = "li.gkd.app"
     defaultConfig {
-        applicationId = "li.songe.gkd"
-        versionCode = 92
-        versionName = "1.12.1"
+        // CLEAN 自有包名。上线后不可再变更，否则已发放的激活码会全部失效。
+        applicationId = "com.clean.click"
+        versionCode = 1
+        versionName = "1.0.0"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -40,6 +33,10 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
+
+        // 单变体化：渠道与无障碍工具标记直接写在 defaultConfig 中（原 productFlavors 已移除）
+        manifestPlaceholders["channel"] = "clean"
+        resValue("bool", "is_accessibility_tool", "true")
 
         manifestPlaceholders["buildKey"] = ""
         manifestPlaceholders["commitId"] = gitInfo.commitId
@@ -66,24 +63,16 @@ android {
         signingConfigs.getByName("debug")
     }
 
-    val playStoreFile = buildProperty("PLAY_STORE_FILE").orNull
-    val playSigningConfig = if (playStoreFile != null) {
-        signingConfigs.create("play") {
-            storeFile = file(playStoreFile)
-            storePassword = buildProperty("PLAY_STORE_PASSWORD").orNull
-            keyAlias = buildProperty("PLAY_KEY_ALIAS").orNull
-            keyPassword = buildProperty("PLAY_KEY_PASSWORD").orNull
-        }
-    } else {
-        gkdSigningConfig
-    }
-
     buildTypes {
         all {
             vcsInfo.include = false
             versionNameSuffix = gitInfo.versionNameSuffix
         }
         release {
+            // 只在提供了生产签名配置时才签名；否则保持未签名。
+            // 刻意不回退到 debug 签名：上游的静默回退会让 release 包"构建成功但签名错误"，
+            // 那种包无法覆盖安装、也无法与已发放的激活码对应。
+            signingConfig = signingConfigs.findByName("gkd")
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
@@ -101,22 +90,7 @@ android {
             }
         }
     }
-    productFlavors {
-        flavorDimensions += "channel"
-        create("gkd") {
-            isDefault = true
-            signingConfig = gkdSigningConfig
-            resValue("bool", "is_accessibility_tool", "true")
-        }
-        create("play") {
-            signingConfig = playSigningConfig
-            resValue("bool", "is_accessibility_tool", "false")
-        }
-        all {
-            dimension = flavorDimensions.first()
-            manifestPlaceholders["channel"] = name
-        }
-    }
+    // 单变体化：原 productFlavors（gkd / play）整块移除，渠道与无障碍标记已移入 defaultConfig。
     // https://github.com/LSPosed/AndroidHiddenApiBypass
     dependenciesInfo {
         includeInApk = false
@@ -138,65 +112,15 @@ androidComponents.onVariants { variant ->
     variant.sources.java?.addGeneratedSourceDirectory(generateUiStrings, GenerateUiStringsTask::outputDirectory)
 }
 
-val androidBuildAssetAdapter =
-    BuildAssetAdapter<ApplicationAndroidComponentsExtension, ApplicationVariant>(
-        onVariants = { components, buildType, action ->
-            val selector = if (buildType == null) {
-                components.selector().all()
-            } else {
-                components.selector().withBuildType(buildType)
-            }
-            components.onVariants(selector, action)
-        },
-        addGeneratedSourceDirectory = { variant, task ->
-            variant.sources.assets?.addGeneratedSourceDirectory(
-                task,
-                GenerateSourcePathsTask::outputDirectory,
-            )
-        },
-        describe = { variant ->
-            val flavorName = variant.productFlavors
-                .single { it.first == "channel" }
-                .second
-            val mainOutput = variant.outputs.single()
-            BuildAssetVariant(
-                name = variant.name,
-                flavor = flavorName,
-                buildType = requireNotNull(variant.buildType),
-                mappingFile = variant.artifacts.get(
-                    SingleArtifact.OBFUSCATION_MAPPING_FILE,
-                ),
-                versionCode = mainOutput.versionCode,
-                versionName = mainOutput.versionName,
-            )
-        },
-        computeTaskName = { variant, action, subject ->
-            variant.computeTaskName(action, subject)
-        },
-    )
-
-configureBuildAssets(
-    androidComponents = androidComponents,
-    adapter = androidBuildAssetAdapter,
-)
-
-androidComponents.onVariants(
-    androidComponents.selector().withBuildType("release"),
-) { variant ->
-    val flavorName = variant.productFlavors
-        .single { it.first == "channel" }
-        .second
-    variant.manifestPlaceholders.put(
-        "buildKey",
-        project.releaseBuildKey(flavorName, gitInfo.commitId),
-    )
-}
+// CLEAN 已移除 api.gkd.li 构建产物上传（会把 mapping.txt 与源码清单外发第三方）。
+// 原 androidBuildAssetAdapter / configureBuildAssets / releaseBuildKey 注入一并删除；
+// 这些代码同时依赖 variant.productFlavors，单变体化后也无法保留。
 
 if (buildProperty("GKD_RENAME_APK_FLAG").isPresent) {
     androidComponents.onVariants { variant ->
         variant.outputs.onEach { output ->
             output as VariantOutputImpl
-            output.outputFileName = "gkd-v${output.versionName.get()}.apk"
+            output.outputFileName = "clean-v${output.versionName.get()}.apk"
         }
     }
 }

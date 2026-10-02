@@ -144,15 +144,7 @@ fun AboutPage() {
                     mainVm.openUrl(REPOSITORY_URL)
                 },
             )
-            if (META.isGkdChannel) {
-                GkSettingItem(
-                    imageVector = null,
-                    title = UiStrings.donate,
-                    onClick = {
-                        mainVm.navigateWebPage(ShortUrlSet.URL10)
-                    },
-                )
-            }
+            // CLEAN 已移除渠道判定与 GKD 的捐赠入口（原 if (META.isGkdChannel) { donate }）
             GkSettingItem(
                 imageVector = null,
                 title = UiStrings.terms_of_use,

@@ -22,34 +22,22 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_CACHE_ENCRYPTION_KEY }}
 
-      - name: write gkd keystore
-        run: echo ${{ secrets.GKD_STORE_FILE_BASE64 }} | base64 --decode > ${{ github.workspace }}/gkd.jks
+      - name: write clean keystore
+        run: echo ${{ secrets.GKD_STORE_FILE_BASE64 }} | base64 --decode > ${{ github.workspace }}/clean.jks
 
-      - name: write play keystore
-        run: echo ${{ secrets.PLAY_STORE_FILE_BASE64 }} | base64 --decode > ${{ github.workspace }}/play.jks
-
-      - run: ./gradlew :gkd-app:assembleGkdRelease :gkd-app:bundlePlayRelease
+      # 单变体化：原 gkd / play 两个 flavor 已合并，play 渠道与 PLAY_* 签名一并移除。
+      - run: ./gradlew :gkd-app:assembleRelease
         env:
-          GKD_GITHUB_COOKIE: ${{ secrets.GKD_GITHUB_COOKIE }}
-          GKD_API_AUTH_TOKEN: ${{ secrets.GKD_API_AUTH_TOKEN }}
-          GKD_STORE_FILE: ${{ github.workspace }}/gkd.jks
+          GKD_STORE_FILE: ${{ github.workspace }}/clean.jks
           GKD_STORE_PASSWORD: ${{ secrets.GKD_STORE_PASSWORD }}
           GKD_KEY_ALIAS: ${{ secrets.GKD_KEY_ALIAS }}
           GKD_KEY_PASSWORD: ${{ secrets.GKD_KEY_PASSWORD }}
-          PLAY_STORE_FILE: ${{ github.workspace }}/play.jks
-          PLAY_STORE_PASSWORD: ${{ secrets.PLAY_STORE_PASSWORD }}
-          PLAY_KEY_ALIAS: ${{ secrets.PLAY_KEY_ALIAS }}
-          PLAY_KEY_PASSWORD: ${{ secrets.PLAY_KEY_PASSWORD }}
+          GKD_RENAME_APK_FLAG: "1"
 
       - uses: actions/upload-artifact@v7
         with:
           name: release
-          path: gkd-app/build/outputs/apk/gkd/release
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: playRelease
-          path: gkd-app/build/outputs/bundle/playRelease
+          path: gkd-app/build/outputs/apk/release
 
       - uses: actions/upload-artifact@v7
         with:
@@ -57,7 +45,7 @@ jobs:
           path: gkd-app/build/outputs
 
       - run: |
-          cp outputs/apk/gkd/release/app-gkd-release.apk "${GITHUB_WORKSPACE}/gkd-${GITHUB_REF_NAME}.apk"
+          cp outputs/apk/release/*.apk "${GITHUB_WORKSPACE}/clean-${GITHUB_REF_NAME}.apk"
           zip -r "${GITHUB_WORKSPACE}/outputs-${GITHUB_REF_NAME}.zip" outputs
         working-directory: gkd-app/build
 
@@ -69,5 +57,5 @@ jobs:
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           fail_on_unmatched_files: true
           files: |
-            gkd-*.apk
+            clean-*.apk
             outputs-*.zip

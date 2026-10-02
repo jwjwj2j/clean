@@ -2,23 +2,24 @@ package li.gkd.gradle
 
 import org.gradle.api.Project
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ValueSource
 import org.gradle.api.provider.ValueSourceParameters
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
-import java.io.File
 import java.io.Serializable
-import java.security.MessageDigest
+
+// CLEAN: 本文件原先还包含 releaseBuildKey / GitBuildKeyValueSource / readRepositoryStateId
+// 与 GitOutputValueSource，它们只服务于已移除的 api.gkd.li 构建产物上传，
+// 已随 BuildAsset.kt / UploadBuildAssetTask.kt / GenerateSourcePathsTask.kt 一并删除。
+// 保留的部分只提供 git 版本信息，用于 versionNameSuffix 与 Manifest 元数据。
 
 private const val GIT_INFO_SERVICE_NAME = "gkdGitInfo"
 
-internal fun runGitCommandBytes(
+private fun runGitCommand(
     repositoryDirectory: String,
     arguments: List<String>,
-): ByteArray {
+): String {
     val process = ProcessBuilder(
         listOf("git", "-C", repositoryDirectory) + arguments,
     ).redirectErrorStream(true).start()
@@ -27,16 +28,7 @@ internal fun runGitCommandBytes(
     if (exitCode != 0) {
         error("Command failed with exit code $exitCode: ${output.toString(Charsets.UTF_8)}")
     }
-    return output
-}
-
-private fun runGitCommand(
-    repositoryDirectory: String,
-    arguments: List<String>,
-): String {
-    return runGitCommandBytes(repositoryDirectory, arguments)
-        .toString(Charsets.UTF_8)
-        .trim()
+    return output.toString(Charsets.UTF_8).trim()
 }
 
 data class GitInfo(
@@ -54,20 +46,6 @@ abstract class GitInfoValueSource : ValueSource<GitInfo, GitInfoValueSource.Para
 
     override fun obtain(): GitInfo {
         return readGitInfo(parameters.repositoryDirectory.get().asFile.absolutePath)
-    }
-}
-
-abstract class GitOutputValueSource : ValueSource<String, GitOutputValueSource.Parameters> {
-    interface Parameters : ValueSourceParameters {
-        val repositoryDirectory: DirectoryProperty
-        val arguments: ListProperty<String>
-    }
-
-    override fun obtain(): String {
-        return runGitCommandBytes(
-            parameters.repositoryDirectory.get().asFile.absolutePath,
-            parameters.arguments.get(),
-        ).toString(Charsets.UTF_8)
     }
 }
 
@@ -93,33 +71,6 @@ val Project.gitInfo: GitInfo
         )
     }.get().gitInfo
 
-fun Project.releaseBuildKey(
-    flavor: String,
-    commitId: String,
-): Provider<String> =
-    providers.of(GitBuildKeyValueSource::class.java) {
-        parameters.repositoryDirectory.set(rootProject.layout.projectDirectory)
-        parameters.flavor.set(flavor)
-        parameters.commitId.set(commitId)
-    }
-
-abstract class GitBuildKeyValueSource :
-    ValueSource<String, GitBuildKeyValueSource.Parameters> {
-    interface Parameters : ValueSourceParameters {
-        val repositoryDirectory: DirectoryProperty
-        val flavor: Property<String>
-        val commitId: Property<String>
-    }
-
-    override fun obtain(): String {
-        val repositoryStateId = readRepositoryStateId(
-            parameters.repositoryDirectory.get().asFile.absolutePath,
-            parameters.commitId.get(),
-        )
-        return "${parameters.flavor.get()}-${repositoryStateId.take(16)}"
-    }
-}
-
 private fun readGitInfo(repositoryDirectory: String): GitInfo {
     val commitId = runGitCommand(repositoryDirectory, listOf("rev-parse", "HEAD"))
     return GitInfo(
@@ -129,53 +80,4 @@ private fun readGitInfo(repositoryDirectory: String): GitInfo {
             runGitCommand(repositoryDirectory, listOf("describe", "--tags", "--exact-match"))
         }.getOrNull(),
     )
-}
-
-private fun readRepositoryStateId(
-    repositoryDirectory: String,
-    commitId: String,
-): String {
-    val status = runGitCommandBytes(
-        repositoryDirectory,
-        listOf("status", "--porcelain=v1", "-z", "--untracked-files=all"),
-    )
-    if (status.isEmpty()) return commitId
-
-    val changedPaths = sequenceOf(
-        runGitCommandBytes(
-            repositoryDirectory,
-            listOf("diff", "--name-only", "-z", "HEAD"),
-        ),
-        runGitCommandBytes(
-            repositoryDirectory,
-            listOf("ls-files", "--others", "--exclude-standard", "-z"),
-        ),
-    )
-        .flatMap { output ->
-            output.toString(Charsets.UTF_8)
-                .splitToSequence('\u0000')
-                .filter(String::isNotEmpty)
-        }
-        .distinct()
-        .sorted()
-        .toList()
-
-    val digest = MessageDigest.getInstance("SHA-256")
-    digest.update(commitId.toByteArray(Charsets.UTF_8))
-    digest.update(0)
-    digest.update(status)
-    changedPaths.forEach { path ->
-        val file = File(repositoryDirectory, path)
-        digest.update(0)
-        digest.update(path.toByteArray(Charsets.UTF_8))
-        if (file.isFile) {
-            digest.update(0)
-            digest.update(file.length().toString().toByteArray(Charsets.UTF_8))
-            digest.update(0)
-            digest.update(file.lastModified().toString().toByteArray(Charsets.UTF_8))
-        }
-    }
-    return digest.digest().joinToString(separator = "") { byte ->
-        "%02x".format(byte.toInt() and 0xff)
-    }
 }

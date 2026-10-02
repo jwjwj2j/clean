@@ -24,6 +24,6 @@ object ShortUrlSet {
     const val URL15 = "https://gkd.li?r=15"
 }
 
-const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=li.songe.gkd"
+// CLEAN 已移除 Google Play 渠道，PLAY_STORE_URL 一并删除。
 
 const val systemUiAppId = "com.android.systemui"
