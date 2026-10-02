@@ -1,17 +1,30 @@
 package com.clean.click.activation
 
 import java.security.MessageDigest
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * CLEAN 激活码纯算法实现。
+ * CLEAN 激活码纯算法实现（结构版本 v2）。
  *
- * 与 `keygen/keygen.py`、`keygen/keygen.html` 逐位一致，规范见 `keygen/spec.md`。
- * 本文件**不依赖任何 Android API**，可以直接在 JVM 单元测试中运行，
- * 这使得三端一致性可以被自动化测试守住。
+ * 与 `keygen/keygen.py`、`keygen/keygen.html`、`keygen/selftest.mjs` 逐位一致，
+ * 规范见 `keygen/spec.md`。本文件**不依赖任何 Android API**，可直接在 JVM 单元测试中运行，
+ * 这使得多端一致性可以被自动化测试守住。
+ *
+ * v2 相对 v1 的变化（2026 需求变更：取消设备绑定，改为限时激活窗口）：
+ *  - **不再绑定设备**：删除 deviceSecret / 设备码 / `dev24` 与 `DEVICE_MISMATCH` 错误。
+ *  - 载荷 `bytes[3..5]` 由设备哈希改为**签发分钟数**（自 EPOCH 起的分钟，24 位）。
+ *  - 新增激活窗口校验：签发后 [WINDOW_MINUTES] 分钟内必须完成激活，
+ *    超时返回 [ActivationError.WindowExpired]。
+ *  - 激活成功后仍为**终身有效**：窗口只限制"何时能激活"，不限制激活后的有效期。
+ *
+ * 取消绑定的代价（必须如实告知产品方，见 spec.md §1.2）：
+ * 同一激活码在窗口内可在多台设备上激活成功，离线算法无法感知。窗口越短、风险越小。
  *
  * 修改本文件前请先读 spec.md，改完必须跑 ActivationCodecTest。
  */
@@ -20,21 +33,33 @@ object ActivationCodec {
     /** Crockford Base32：无 I / L / O / U，避免与 1 / 0 混淆。 */
     const val ALPHABET: String = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
-    private const val DEVICE_DOMAIN = "CLEAN-DEV-V1|"
-    private val ACT_DOMAIN: ByteArray = "CLEAN-ACT-V1".toByteArray(Charsets.US_ASCII)
+    private val ACT_DOMAIN: ByteArray = "CLEAN-ACT-V2".toByteArray(Charsets.US_ASCII)
 
-    /** 激活码结构版本，v1 固定为 1。 */
-    const val VERSION: Int = 1
+    /** 激活码结构版本。v1 码会被判为 [ActivationError.UnsupportedVersion]。 */
+    const val VERSION: Int = 2
 
-    /** 时间基准日；expiryDays 是相对它的天数，0 表示永久。 */
+    /** 时间基准日：`expiryDays` 相对它的天数，`issueMinutes` 相对它当天 00:00 UTC 的分钟数。 */
     val EPOCH: LocalDate = LocalDate.of(2020, 1, 1)
 
+    /** 时间基准时刻：EPOCH 当天 00:00:00 UTC。 */
+    val EPOCH_INSTANT: Instant = EPOCH.atStartOfDay(ZoneOffset.UTC).toInstant()
+
     const val CODE_LENGTH: Int = 24
-    const val DEVICE_CODE_LENGTH: Int = 10
-    const val DEV24_LENGTH: Int = 3
     const val MAC_LENGTH: Int = 9
     const val CODE_BYTES: Int = 15
-    private const val DEVICE_HASH_PREFIX_BYTES: Int = 8
+    const val PAYLOAD_BYTES: Int = 6
+
+    /** 签发后必须在这么多分钟内完成激活。 */
+    const val WINDOW_MINUTES: Int = 10
+
+    /**
+     * 时钟偏斜容忍：允许设备时钟比签发时刻**慢**这么多分钟。
+     * 纯粹是为了吸收 NTP 误差与人工操作延迟，不构成安全边界。
+     */
+    const val CLOCK_SKEW_MINUTES: Int = 5
+
+    /** `issueMinutes` 是 24 位，最大可表示 16,777,215 分钟 ≈ 31.9 年（覆盖到 2051 年）。 */
+    const val MAX_ISSUE_MINUTES: Int = 0xFF_FFFF
 
     private const val MAX_EXPIRY_DAYS: Int = 0xFFFF
 
@@ -43,13 +68,14 @@ object ActivationCodec {
     }
 
     private val formatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+    private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
     private val macThreadLocal = ThreadLocal.withInitial {
         Mac.getInstance("HmacSHA256").apply { init(SecretKeySpec(ByteArray(32), "HmacSHA256")) }
     }
 
     // ----------------------------------------------------------------------
-    // Base32（MSB-first，无填充）
+    // Base32（MSB-first，无填充）—— 与 v1 完全一致，不得改动
     // ----------------------------------------------------------------------
 
     /**
@@ -109,58 +135,51 @@ object ActivationCodec {
         return out.toByteArray()
     }
 
-    /** 展示用分组，例如 24 字符 -> 6 组 4 字符，10 字符 -> 2 组 5 字符。 */
+    /** 展示用分组，例如 24 字符 -> 6 组 4 字符。 */
     fun group(text: String, size: Int): String =
         text.chunked(size).joinToString("-")
 
     // ----------------------------------------------------------------------
-    // 设备指纹
+    // 签发时刻
     // ----------------------------------------------------------------------
 
-    private fun sha256(bytes: ByteArray): ByteArray =
-        MessageDigest.getInstance("SHA-256").digest(bytes)
-
-    /** H = SHA-256("CLEAN-DEV-V1|" + deviceSecret)，32 字节。 */
-    fun deviceHash(deviceSecret: String): ByteArray =
-        sha256((DEVICE_DOMAIN + deviceSecret).toByteArray(Charsets.UTF_8))
-
-    /** 展示给用户的设备码：H 前 8 字节编码后的前 10 个字符。 */
-    fun deviceCodeOf(deviceSecret: String): String =
-        base32Encode(deviceHash(deviceSecret).copyOf(DEVICE_HASH_PREFIX_BYTES))
-            .take(DEVICE_CODE_LENGTH)
-
-    /** 激活码中嵌入的 24 位绑定值。 */
-    fun dev24Of(deviceSecret: String): ByteArray =
-        deviceHash(deviceSecret).copyOf(DEV24_LENGTH)
-
-    /**
-     * 卖家侧：从用户报来的设备码还原 dev24。
-     *
-     * 设备码 10 字符 = 50 位，完整包含 H 的前 24 位（见 spec.md §4.2），
-     * 因此解码后取前 3 字节即可，与服务端无关。
-     */
-    fun dev24FromDeviceCode(deviceCode: String): ByteArray {
-        val normalized = normalize(deviceCode)
-        require(normalized.length == DEVICE_CODE_LENGTH) {
-            "设备码必须是 $DEVICE_CODE_LENGTH 个字符，当前 ${normalized.length} 个"
+    /** 某一时刻对应的签发分钟数（自 [EPOCH_INSTANT] 起的整分钟，向下取整）。 */
+    fun issueMinutesOf(instant: Instant): Int {
+        val minutes = ChronoUnit.MINUTES.between(EPOCH_INSTANT, instant)
+        require(minutes in 0..MAX_ISSUE_MINUTES.toLong()) {
+            "签发时刻超出可编码范围（0..$MAX_ISSUE_MINUTES 分钟，即 2020-01-01 至 2051 年）"
         }
-        require(isValidAlphabet(normalized)) { "设备码含非法字符（字母表不含 I/L/O/U）" }
-        val raw = base32Decode(normalized)
-        require(raw.size >= DEV24_LENGTH) { "设备码解码结果过短" }
-        return raw.copyOf(DEV24_LENGTH)
+        return minutes.toInt()
+    }
+
+    /** 当前时刻的签发分钟数。 */
+    fun currentIssueMinutes(now: Instant = Instant.now()): Int = issueMinutesOf(now)
+
+    /** 签发分钟数还原为 UTC 时刻。 */
+    fun issuedAt(issueMinutes: Int): Instant =
+        EPOCH_INSTANT.plusSeconds(issueMinutes.toLong() * 60L)
+
+    fun describeIssuedAt(issueMinutes: Int): String =
+        dateTimeFormatter.format(java.time.LocalDateTime.ofInstant(issuedAt(issueMinutes), ZoneOffset.UTC)) + " UTC"
+
+    /** 距离激活窗口关闭还剩多少秒；已过期返回 0。 */
+    fun windowSecondsLeft(issueMinutes: Int, now: Instant = Instant.now()): Long {
+        val elapsed = ChronoUnit.SECONDS.between(issuedAt(issueMinutes), now)
+        return (WINDOW_MINUTES * 60L - elapsed).coerceAtLeast(0L)
     }
 
     // ----------------------------------------------------------------------
-    // 有效期
+    // 有效期（到期语义与 v1 相同）
     // ----------------------------------------------------------------------
 
     /** 自今天起 [days] 天的字段值；0 表示永久。 */
-    fun expiryDaysFromToday(days: Int, today: LocalDate = LocalDate.now()): Int {
+    fun expiryDaysFromToday(days: Int, today: LocalDate = LocalDate.now(ZoneOffset.UTC)): Int {
         require(days >= 0) { "有效期不能为负数（0 表示永久）" }
         if (days == 0) return 0
-        val limit = MAX_EXPIRY_DAYS - java.time.temporal.ChronoUnit.DAYS.between(EPOCH, today).toInt()
+        val elapsed = ChronoUnit.DAYS.between(EPOCH, today).toInt()
+        val limit = MAX_EXPIRY_DAYS - elapsed
         require(days <= limit) { "有效期过长：自今天起最多可签发 $limit 天" }
-        return java.time.temporal.ChronoUnit.DAYS.between(EPOCH, today).toInt() + days
+        return elapsed + days
     }
 
     fun expiryDate(days: Int): LocalDate? =
@@ -179,22 +198,34 @@ object ActivationCodec {
         return mac.doFinal(ACT_DOMAIN + payload).copyOf(MAC_LENGTH)
     }
 
-    /** 组装 6 字节 payload：version|tier、expiryDays(大端)、dev24。 */
-    fun buildPayload(tier: Int, expiryDays: Int, dev24: ByteArray): ByteArray {
+    /** 组装 6 字节 payload：version|tier、expiryDays(大端)、issueMinutes(大端 24 位)。 */
+    fun buildPayload(tier: Int, expiryDays: Int, issueMinutes: Int): ByteArray {
         require(tier in 0..0x0F) { "tier 必须在 0..15" }
         require(expiryDays in 0..MAX_EXPIRY_DAYS) { "expiryDays 必须在 0..65535" }
-        require(dev24.size == DEV24_LENGTH) { "dev24 必须是 $DEV24_LENGTH 字节" }
+        require(issueMinutes in 0..MAX_ISSUE_MINUTES) { "issueMinutes 必须在 0..$MAX_ISSUE_MINUTES" }
         return byteArrayOf(
             ((VERSION shl 4) or tier).toByte(),
             ((expiryDays shr 8) and 0xFF).toByte(),
             (expiryDays and 0xFF).toByte(),
-            dev24[0], dev24[1], dev24[2],
+            ((issueMinutes shr 16) and 0xFF).toByte(),
+            ((issueMinutes shr 8) and 0xFF).toByte(),
+            (issueMinutes and 0xFF).toByte(),
         )
     }
 
-    /** 生成激活码（返回 24 字符规范形式）。 */
-    fun generateCode(secret: ByteArray, deviceCode: String, expiryDays: Int, tier: Int = 0): String {
-        val payload = buildPayload(tier, expiryDays, dev24FromDeviceCode(deviceCode))
+    /**
+     * 生成激活码（返回 24 字符规范形式）。
+     *
+     * @param issueMinutes 签发时刻，通常传 [currentIssueMinutes]。
+     * @param expiryDays 0 表示永久（当前产品策略恒为 0）。
+     */
+    fun generateCode(
+        secret: ByteArray,
+        issueMinutes: Int,
+        expiryDays: Int,
+        tier: Int = 0,
+    ): String {
+        val payload = buildPayload(tier, expiryDays, issueMinutes)
         return base32Encode(payload + mac(secret, payload))
     }
 
@@ -208,6 +239,9 @@ object ActivationCodec {
         val raw = base32Decode(normalized)
         require(raw.size == CODE_BYTES) { "激活码解码长度异常: ${raw.size}" }
         val expiryDays = ((raw[1].toInt() and 0xFF) shl 8) or (raw[2].toInt() and 0xFF)
+        val issueMinutes = ((raw[3].toInt() and 0xFF) shl 16) or
+            ((raw[4].toInt() and 0xFF) shl 8) or
+            (raw[5].toInt() and 0xFF)
         return ParsedCode(
             normalized = normalized,
             display = group(normalized, 4),
@@ -215,20 +249,30 @@ object ActivationCodec {
             tier = raw[0].toInt() and 0x0F,
             expiryDays = expiryDays,
             expiryDate = expiryDate(expiryDays),
-            dev24 = raw.copyOfRange(3, 6),
-            mac = raw.copyOfRange(6, 15),
+            issueMinutes = issueMinutes,
+            issuedAt = issuedAt(issueMinutes),
+            mac = raw.copyOfRange(PAYLOAD_BYTES, CODE_BYTES),
         )
     }
 
     /**
      * 完整校验。校验顺序见 spec.md §8.1：
-     * 先长度/版本，再验签，最后才比对设备——避免把设备比对变成试错预言机。
+     * 先长度/版本，再验签，最后才做窗口与到期判断
+     * —— 避免把业务判断变成可试错的预言机。
+     *
+     * @param nowMinutes 设备当前时刻对应的签发分钟数，通常传 [currentIssueMinutes]。
+     * @param today 用于 `expiryDays` 的到期判定，通常传 UTC 当天。
+     * @param enforceWindow 是否校验激活窗口。
+     *   **激活码输入时必须是 true**；**复检已存储的激活码时必须是 false**
+     *   —— 否则已激活的设备会在签发 10 分钟后把自己判为失效。
+     *   窗口只约束"何时能激活"，不约束"激活后能用多久"（产品策略：激活后终身有效）。
      */
     fun verify(
         secret: ByteArray,
         code: String,
-        deviceSecret: String,
-        today: LocalDate = LocalDate.now(),
+        nowMinutes: Int,
+        today: LocalDate = LocalDate.now(ZoneOffset.UTC),
+        enforceWindow: Boolean = true,
     ): ActivationResult {
         val normalized = normalize(code)
         if (normalized.length != CODE_LENGTH || !isValidAlphabet(normalized)) {
@@ -237,8 +281,8 @@ object ActivationCodec {
         val raw = base32Decode(normalized)
         if (raw.size != CODE_BYTES) return ActivationResult.Failure(ActivationError.Malformed)
 
-        val payload = raw.copyOfRange(0, 6)
-        val macFromCode = raw.copyOfRange(6, 15)
+        val payload = raw.copyOfRange(0, PAYLOAD_BYTES)
+        val macFromCode = raw.copyOfRange(PAYLOAD_BYTES, CODE_BYTES)
 
         if (((payload[0].toInt() and 0xFF) shr 4) != VERSION) {
             return ActivationResult.Failure(ActivationError.UnsupportedVersion)
@@ -247,13 +291,32 @@ object ActivationCodec {
         if (!MessageDigest.isEqual(mac(secret, payload), macFromCode)) {
             return ActivationResult.Failure(ActivationError.BadSignature)
         }
-        if (!MessageDigest.isEqual(dev24Of(deviceSecret), payload.copyOfRange(3, 6))) {
-            return ActivationResult.Failure(ActivationError.DeviceMismatch)
-        }
 
         val expiryDays = ((payload[1].toInt() and 0xFF) shl 8) or (payload[2].toInt() and 0xFF)
+        val issueMinutes = ((payload[3].toInt() and 0xFF) shl 16) or
+            ((payload[4].toInt() and 0xFF) shl 8) or
+            (payload[5].toInt() and 0xFF)
+
+        // 激活窗口：签发后 WINDOW_MINUTES 分钟内必须激活
+        if (enforceWindow) {
+            val delta = nowMinutes - issueMinutes
+            if (delta < -CLOCK_SKEW_MINUTES) {
+                // 设备时钟明显落后于签发时刻 —— 属时钟异常，而非"码还没生效"
+                return ActivationResult.Failure(
+                    ActivationError.ClockAnomaly,
+                    issuedAt = issuedAt(issueMinutes),
+                )
+            }
+            if (delta > WINDOW_MINUTES) {
+                return ActivationResult.Failure(
+                    ActivationError.WindowExpired,
+                    issuedAt = issuedAt(issueMinutes),
+                )
+            }
+        }
+
         if (expiryDays != 0) {
-            val elapsed = java.time.temporal.ChronoUnit.DAYS.between(EPOCH, today).toInt()
+            val elapsed = ChronoUnit.DAYS.between(EPOCH, today).toInt()
             if (elapsed > expiryDays) {
                 return ActivationResult.Failure(
                     ActivationError.Expired,
@@ -267,6 +330,8 @@ object ActivationCodec {
             expiryDays = expiryDays,
             expiryDate = expiryDate(expiryDays),
             permanent = expiryDays == 0,
+            issueMinutes = issueMinutes,
+            issuedAt = issuedAt(issueMinutes),
         )
     }
 }
@@ -279,7 +344,8 @@ data class ParsedCode(
     val tier: Int,
     val expiryDays: Int,
     val expiryDate: LocalDate?,
-    val dev24: ByteArray,
+    val issueMinutes: Int,
+    val issuedAt: Instant,
     val mac: ByteArray,
 ) {
     override fun equals(other: Any?): Boolean =
@@ -295,7 +361,9 @@ enum class ActivationError {
     Malformed,
     UnsupportedVersion,
     BadSignature,
-    DeviceMismatch,
+
+    /** 超过激活窗口（签发后 [ActivationCodec.WINDOW_MINUTES] 分钟内未激活）。 */
+    WindowExpired,
     Expired,
     ClockAnomaly,
 }
@@ -307,10 +375,13 @@ sealed class ActivationResult {
         val expiryDays: Int,
         val expiryDate: LocalDate?,
         val permanent: Boolean,
+        val issueMinutes: Int,
+        val issuedAt: Instant,
     ) : ActivationResult()
 
     data class Failure(
         val error: ActivationError,
         val expiredAt: LocalDate? = null,
+        val issuedAt: Instant? = null,
     ) : ActivationResult()
 }

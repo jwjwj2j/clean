@@ -1,7 +1,5 @@
 package com.clean.click.activation
 
-import android.content.ClipData
-import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,12 +12,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -32,8 +27,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,12 +49,17 @@ fun ActivationGate(content: @Composable () -> Unit) {
     if (activated) content() else ActivationPage()
 }
 
+/**
+ * 激活页。
+ *
+ * v2 变更（取消设备绑定）：本页**不再展示设备码**。用户只需把卖家给的激活码粘进来。
+ * 界面只做一件事：提示「激活码需在生成后 10 分钟内使用」，然后提交。
+ * 倒计时显示在卖家的 keygen 页面上，App 端不做倒计时（避免用户改系统时间造成误导）。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActivationPage() {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val snapshot by ActivationManager.snapshotFlow.collectAsStateWithLifecycle()
 
     var input by remember { mutableStateOf("") }
     var message by remember { mutableStateOf<String?>(null) }
@@ -105,43 +103,6 @@ fun ActivationPage() {
 
             Spacer(Modifier.height(28.dp))
 
-            // 设备码：用户需要把它发给卖家
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                ),
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = UiStrings.activation_device_code_label,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = ActivationCodec.group(snapshot.deviceCode, 5),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontFamily = FontFamily.Monospace,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedButton(onClick = { copyToClipboard(context, snapshot.deviceCode) }) {
-                        Text(UiStrings.activation_copy_device_code)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = UiStrings.activation_device_code_hint,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
             OutlinedTextField(
                 value = input,
                 onValueChange = { raw ->
@@ -184,14 +145,15 @@ fun ActivationPage() {
                 Text(UiStrings.activation_submit)
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
-            TextButton(onClick = {
-                copyToClipboard(context, snapshot.deviceCode)
-                message = UiStrings.activation_device_code_copied
-            }) {
-                Text(UiStrings.activation_contact_support)
-            }
+            // 10 分钟窗口提示：放在提交按钮下方，用户失败时最容易回看这里
+            Text(
+                text = UiStrings.activation_window_hint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
 
             Spacer(Modifier.height(8.dp))
             Text(
@@ -205,8 +167,9 @@ fun ActivationPage() {
 }
 
 /**
- * 到期/时间异常时的独立提示页。
- * 与未激活区分开：用户已付费，这里要给出明确的重试与续费指引。
+ * 到期/时间异常时的独立提示条。
+ * 当前产品策略恒为永久码，因此 `needsRenewNotice` 不会触发；
+ * 保留它是为了让将来若改回限时码时无需重建这层 UI。
  */
 @Composable
 fun ActivationRenewNotice(onDismiss: () -> Unit) {
@@ -239,15 +202,12 @@ private fun activationErrorText(outcome: ActivationManager.Outcome.Rejected): St
         ActivationError.BadSignature,
         -> UiStrings.activation_invalid
 
-        ActivationError.DeviceMismatch -> UiStrings.activation_device_mismatch
+        // 新增：签发后 10 分钟内未激活
+        ActivationError.WindowExpired -> UiStrings.activation_window_expired
+
         ActivationError.Expired -> outcome.expiredAt
             ?.let { UiStrings.activation_expired_on(it.toString()) }
             ?: UiStrings.activation_expired
 
         ActivationError.ClockAnomaly -> UiStrings.activation_clock_anomaly
     }
-
-private fun copyToClipboard(context: Context, text: String) {
-    val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-    manager.setPrimaryClip(ClipData.newPlainText("clean-device-code", text))
-}

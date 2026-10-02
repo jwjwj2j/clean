@@ -14,6 +14,10 @@ import java.security.MessageDigest
  *    因此"把 is_activated 改成 true"这类朴素 patch 无效。
  * 3. **HMAC 自校验**：文件内容带 HMAC，防止用文本编辑器手改 `lastSeen` 来绕过时间回拨检测。
  *    注意密钥在 APK 内，这不是强完整性保护，只是提高门槛（见 spec.md §1.2）。
+ *
+ * v2 变更：取消设备绑定，记录里不再保存 `deviceCode`。
+ * 读取时仍接受 v1 的 4 段旧格式（忽略第 4 段），但旧记录里的 v1 激活码会在
+ * [ActivationCodec.verify] 阶段被判为 UNSUPPORTED_VERSION，因此兼容只是为了避免解析报错。
  */
 object ActivationStore {
 
@@ -21,7 +25,6 @@ object ActivationStore {
     private const val KEY_CODE = "code"
     private const val KEY_ACTIVATED_AT = "activated_at"
     private const val KEY_LAST_SEEN = "last_seen"
-    private const val KEY_DEVICE_CODE = "device_code"
 
     private const val FILE_DIR = "clean"
     private const val FILE_NAME = "activation.dat"
@@ -31,7 +34,6 @@ object ActivationStore {
         val code: String,
         val activatedAt: Long,
         val lastSeen: Long,
-        val deviceCode: String,
     ) {
         val isEmpty: Boolean get() = code.isBlank()
     }
@@ -58,7 +60,6 @@ object ActivationStore {
             record.code,
             record.activatedAt.toString(),
             record.lastSeen.toString(),
-            record.deviceCode,
         ).joinToString("\u0000")
         val body = android.util.Base64.encodeToString(
             payload.toByteArray(Charsets.UTF_8),
@@ -84,12 +85,12 @@ object ActivationStore {
             Charsets.UTF_8,
         )
         val parts = payload.split('\u0000')
-        if (parts.size != 4) return null
+        // v2 为 3 段；v1 为 4 段（第 4 段是已废弃的 deviceCode），读旧记录时忽略它
+        if (parts.size != 3 && parts.size != 4) return null
         Record(
             code = parts[0],
             activatedAt = parts[1].toLongOrNull() ?: return null,
             lastSeen = parts[2].toLongOrNull() ?: return null,
-            deviceCode = parts[3],
         )
     }.getOrNull()
 
@@ -106,14 +107,13 @@ object ActivationStore {
                     code = it,
                     activatedAt = local.getLong(KEY_ACTIVATED_AT, 0L),
                     lastSeen = local.getLong(KEY_LAST_SEEN, 0L),
-                    deviceCode = local.getString(KEY_DEVICE_CODE, "").orEmpty(),
                 )
             }
         val fromFile = file(context).takeIf { it.isFile }
             ?.let { runCatching { decode(it.readText(Charsets.UTF_8), secret) }.getOrNull() }
 
         val candidates = listOfNotNull(fromPrefs, fromFile).filter { !it.isEmpty }
-        if (candidates.isEmpty()) return Record("", 0L, 0L, "")
+        if (candidates.isEmpty()) return Record("", 0L, 0L)
         // 取 lastSeen 较大者；相同则取 prefs（写入更早完成）
         return candidates.maxByOrNull { it.lastSeen } ?: candidates.first()
     }
@@ -124,7 +124,6 @@ object ActivationStore {
             .putString(KEY_CODE, record.code)
             .putLong(KEY_ACTIVATED_AT, record.activatedAt)
             .putLong(KEY_LAST_SEEN, record.lastSeen)
-            .putString(KEY_DEVICE_CODE, record.deviceCode)
             .commit()
 
         val target = file(context)
