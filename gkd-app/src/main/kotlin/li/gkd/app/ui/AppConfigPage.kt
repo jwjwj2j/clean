@@ -35,7 +35,6 @@ import li.gkd.app.domain.rule.RuleConfigIndex
 import li.gkd.app.domain.rule.RuleGroupTarget
 import li.gkd.app.domain.rule.RuleSetting
 import li.gkd.app.domain.rule.toRuleGroupTarget
-import li.gkd.app.feature.log.ActionLogRoute
 import li.gkd.app.feature.subscription.SubsAppGroupListRoute
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.ui.share.ListPlaceholder
@@ -261,12 +260,7 @@ fun AppConfigPage(route: AppConfigRoute) {
                                 }
                             }
                         }
-                        GkIconButton(
-                            imageVector = GkIcons.History,
-                            onClick = throttle {
-                                mainVm.navigatePage(ActionLogRoute(appId = appId))
-                            },
-                        )
+                        // CLEAN：原「查看规则触发记录」图标按钮已随日志页面下线
                     }
                 },
             )

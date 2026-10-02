@@ -49,7 +49,6 @@ import li.gkd.app.data.AppInfo
 import li.gkd.app.permission.PermissionStates
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.ui.AppConfigRoute
-import li.gkd.app.ui.EditBlockAppListRoute
 import li.gkd.app.ui.share.ListPlaceholder
 import li.gkd.app.ui.share.noRippleClickable
 import li.gkd.app.ui.style.appItemPadding
@@ -232,14 +231,7 @@ fun useAppListPage(): ScaffoldExt {
             })
         },
         floatingActionButton = {
-            GkAnimatedFloatingActionButton(
-                visible = editWhiteListMode,
-                contentDescription = UiStrings.whitelist_edit,
-                onClick = {
-                    mainVm.navigatePage(EditBlockAppListRoute)
-                },
-                imageVector = GkIcons.Edit,
-            )
+            // CLEAN：原「编辑白名单」FAB 指向的页面已随局部禁用功能下线
         }
     ) { contentPadding ->
         PullToRefreshBox(

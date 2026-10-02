@@ -34,7 +34,6 @@ import li.gkd.app.service.A11yService
 import li.gkd.app.store.AppStore
 import li.gkd.app.store.FileStateStore
 import li.gkd.app.store.AppStore.storeFlow
-import li.gkd.app.ui.CrashReportRoute
 import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.ui.WebViewRoute
 import li.gkd.app.ui.component.DialogRequests
@@ -414,7 +413,9 @@ class MainViewModel : BaseViewModel() {
             }
             tempCrashDataList = list
             if (list.isNotEmpty()) {
-                navigatePage(CrashReportRoute)
+                // CLEAN：崩溃报告页面已随技术面收口下线。
+                // 崩溃数据仍会写入 crash 目录（供客服索取），但不再自动跳转页面。
+                LogUtils.d("检测到崩溃记录", list.size)
             }
         }
 

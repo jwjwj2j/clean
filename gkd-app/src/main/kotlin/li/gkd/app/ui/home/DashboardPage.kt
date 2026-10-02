@@ -57,12 +57,10 @@ import li.gkd.app.service.topAppIdFlow
 import li.gkd.app.store.AppStore.actualA11yScopeAppList
 import li.gkd.app.store.AppStore.actionCountFlow
 import li.gkd.app.store.AppStore.storeFlow
-import li.gkd.app.feature.log.ActionLogRoute
-import li.gkd.app.feature.log.ActivityLogRoute
 import li.gkd.app.ui.AppConfigRoute
 import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.ui.WebViewRoute
-import li.gkd.app.feature.settings.WorkModeRoute
+import li.gkd.app.ui.app.showAccessRestrictedSettingsDialog
 import li.gkd.app.ui.style.itemHorizontalPadding
 import li.gkd.app.ui.style.itemVerticalPadding
 import li.gkd.app.ui.style.surfaceCardColors
@@ -182,15 +180,14 @@ fun useDashboardPage(): ScaffoldExt {
                     checked = a11yRunning,
                     onCheckedChange = { newEnabled ->
                         if (newEnabled && !PermissionStates.writeSecureSettings.value) {
-                            mainVm.navigatePage(WorkModeRoute)
+                            // CLEAN：原跳转「工作模式」页说明受限设置，该页已下线；
+                            // 改为复用应用级「受限设置」提示对话框。
+                            showAccessRestrictedSettingsDialog()
                         } else {
                             switchAutomatorService()
                         }
                     },
                     mode = automatorMode.label,
-                    onModeClick = {
-                        mainVm.navigatePage(WorkModeRoute)
-                    },
                 )
             } else {
                 val automation by uiAutomationFlow.collectAsStateWithLifecycle()
@@ -215,9 +212,6 @@ fun useDashboardPage(): ScaffoldExt {
                         }
                     },
                     mode = automatorMode.label,
-                    onModeClick = {
-                        mainVm.navigatePage(WorkModeRoute)
-                    },
                 )
             }
 
@@ -243,7 +237,6 @@ fun useDashboardPage(): ScaffoldExt {
                 subsStatus = subsStatus,
                 latestRecordDesc = latestRecordDesc,
                 latestRecordIsGlobal = latestRecord?.groupType == RuleGroupType.Global,
-                onOpenActionLog = { mainVm.navigatePage(ActionLogRoute()) },
                 onOpenLatestRecord = {
                     latestRecord?.let {
                         mainVm.navigatePage(AppConfigRoute(appId = it.appId, focusLog = it))
@@ -347,10 +340,18 @@ private fun ServiceStatusCard(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     mode: String,
-    onModeClick: () -> Unit,
+    onModeClick: (() -> Unit)? = null,
 ) {
     val onStatusClick = throttle { onCheckedChange(!checked) }
-    val onModeRowClick = throttle(onModeClick)
+    // CLEAN：工作模式页面已随技术面收口下线，模式行改为只读展示（不再可点）
+    val modeRowClickModifier = if (onModeClick == null) {
+        Modifier
+    } else {
+        Modifier.clickable(
+            onClickLabel = UiStrings.work_mode_open,
+            onClick = throttle(onModeClick),
+        )
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -394,10 +395,7 @@ private fun ServiceStatusCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics(mergeDescendants = true) {}
-                .clickable(
-                    onClickLabel = UiStrings.work_mode_open,
-                    onClick = onModeRowClick,
-                )
+                .then(modeRowClickModifier)
                 .padding(
                     start = itemVerticalPadding,
                     end = itemVerticalPadding,
@@ -467,9 +465,18 @@ private fun TriggerOverviewCard(
     subsStatus: String,
     latestRecordDesc: String?,
     latestRecordIsGlobal: Boolean,
-    onOpenActionLog: () -> Unit,
+    onOpenActionLog: (() -> Unit)? = null,
     onOpenLatestRecord: () -> Unit,
 ) {
+    // CLEAN：操作日志页面已下线，此处卡片改为只读展示
+    val logClickModifier = if (onOpenActionLog == null) {
+        Modifier
+    } else {
+        Modifier.clickable(
+            onClickLabel = UiStrings.action_log_open,
+            onClick = throttle(onOpenActionLog),
+        )
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -479,10 +486,7 @@ private fun TriggerOverviewCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics(mergeDescendants = true) {}
-                .clickable(
-                    onClickLabel = UiStrings.action_log_open,
-                    onClick = throttle(onOpenActionLog),
-                )
+                .then(logClickModifier)
                 .padding(
                     start = itemVerticalPadding,
                     end = itemVerticalPadding,

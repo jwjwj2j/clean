@@ -30,7 +30,6 @@ import li.gkd.app.ui.share.statusText
 import li.gkd.app.priv.privilegeContextFlow
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.feature.settings.AboutRoute
-import li.gkd.app.ui.BlockA11yAppListRoute
 import li.gkd.app.ui.style.titleItemPadding
 import li.gkd.app.util.AndroidTarget
 import li.gkd.app.util.DarkThemeOption
@@ -132,25 +131,8 @@ fun useSettingsPage(): ScaffoldExt {
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
-            GkSettingItem(
-                title = UiStrings.action_toast,
-                subtitle = listOf(
-                    if (!store.toastWhenClick) UiStrings.turned_off
-                    else if (store.useSystemToast) UiStrings.action_toast_style_system
-                    else "",
-                    store.actionToast.lineSequence().joinToString(" ").trim(),
-                ).filter { it.isNotEmpty() }.joinToString(" · "),
-                subtitleMaxLines = 1,
-                subtitleOverflow = TextOverflow.Ellipsis,
-                onClick = { mainVm.navigatePage(ActionToastRoute) },
-            )
-
-            NotificationTextSettingItem(
-                useCustomText = store.useCustomNotifText,
-                customTitle = store.customNotifTitle,
-                customText = store.customNotifText,
-                onClick = { mainVm.navigatePage(NotificationTextRoute) },
-            )
+            // CLEAN：原「点击提示文案」与「通知文案」设置项指向的定制页面已随技术面收口下线，
+            // 两项一并移除以保持设置页只保留消费者真正会调的开关。
 
             GkTextSwitch(
                 title = UiStrings.hide_from_recents,
@@ -169,35 +151,8 @@ fun useSettingsPage(): ScaffoldExt {
                     }
                 })
 
-            AnimatedVisibility(visible = store.enableBlockA11yAppList) {
-                Text(
-                    text = UiStrings.a11y_label,
-                    modifier = Modifier.titleItemPadding(),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            GkTextSwitch(
-                title = UiStrings.service_partial_disable,
-                subtitle = if (store.enableBlockA11yAppList && !privilegeAvailable)
-                    UiStrings.privilege_service_disconnected
-                else UiStrings.service_partial_disable_description,
-                checked = store.enableBlockA11yAppList,
-                onClick = { mainVm.navigatePage(BlockA11ySetupRoute) },
-                onClickLabel = UiStrings.partial_disable_setup_open,
-                onCheckedChange = {
-                    if (it) {
-                        mainVm.navigatePage(BlockA11ySetupRoute)
-                    } else {
-                        vm.setBlockA11yAppListEnabled(false)
-                    }
-                },
-            )
-            AnimatedVisibility(visible = store.enableBlockA11yAppList) {
-                GkSettingItem(title = UiStrings.whitelist_title, onClickLabel = UiStrings.a11y_whitelist_open, onClick = {
-                    mainVm.navigatePage(BlockA11yAppListRoute)
-                })
-            }
+            // CLEAN：原「局部禁用无障碍」（enableBlockA11yAppList）、其设置向导与白名单页面
+            // 属于技术面，已随相关页面下线。
 
             Text(
                 text = UiStrings.settings_appearance,
@@ -243,30 +198,4 @@ fun useSettingsPage(): ScaffoldExt {
             GkPageBottomSpace()
         }
     }
-}
-
-@Composable
-private fun NotificationTextSettingItem(
-    useCustomText: Boolean,
-    customTitle: String,
-    customText: String,
-    onClick: () -> Unit,
-) {
-    val ruleSummary by SubscriptionState.ruleSummaryFlow.collectAsStateWithLifecycle()
-    val actionCount by actionCountFlow.collectAsStateWithLifecycle()
-    val title = if (useCustomText) customTitle.replaceNotificationTemplate(ruleSummary, actionCount)
-    else META.appName
-    val text = if (useCustomText) customText.replaceNotificationTemplate(ruleSummary, actionCount)
-    else ruleSummary.statusText(actionCount)
-    val subtitle = listOf(title, text)
-        .map { it.lineSequence().joinToString(" ").trim() }
-        .filter { it.isNotEmpty() }
-        .joinToString(" · ")
-    GkSettingItem(
-        title = UiStrings.notification_text,
-        subtitle = subtitle,
-        subtitleMaxLines = 1,
-        subtitleOverflow = TextOverflow.Ellipsis,
-        onClick = onClick,
-    )
 }

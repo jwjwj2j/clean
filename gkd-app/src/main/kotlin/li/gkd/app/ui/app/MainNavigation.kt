@@ -7,8 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
-import li.gkd.app.feature.subscription.RuleExcludeEditorPage
-import li.gkd.app.feature.subscription.RuleExcludeEditorRoute
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -17,28 +15,10 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import li.gkd.app.ui.A11YScopeAppListRoute
-import li.gkd.app.feature.log.A11yEventLogPage
-import li.gkd.app.feature.log.A11yEventLogRoute
-import li.gkd.app.ui.A11yScopeAppListPage
 import li.gkd.app.feature.settings.AboutPage
 import li.gkd.app.feature.settings.AboutRoute
-import li.gkd.app.feature.log.ActionLogPage
-import li.gkd.app.feature.log.ActionLogRoute
-import li.gkd.app.feature.log.ActivityLogPage
-import li.gkd.app.feature.log.ActivityLogRoute
-import li.gkd.app.ui.AppConfigPage
-import li.gkd.app.ui.AppConfigRoute
-import li.gkd.app.ui.BlockA11yAppListPage
-import li.gkd.app.ui.BlockA11yAppListRoute
-import li.gkd.app.ui.CrashReportPage
-import li.gkd.app.ui.CrashReportRoute
-import li.gkd.app.ui.EditBlockAppListPage
-import li.gkd.app.ui.EditBlockAppListRoute
-import li.gkd.app.ui.ImagePreviewPage
-import li.gkd.app.ui.ImagePreviewRoute
-import li.gkd.app.ui.PrivilegeServicePage
-import li.gkd.app.ui.PrivilegeServiceRoute
+import li.gkd.app.feature.subscription.RuleExcludeEditorPage
+import li.gkd.app.feature.subscription.RuleExcludeEditorRoute
 import li.gkd.app.feature.subscription.SubsAppGroupListPage
 import li.gkd.app.feature.subscription.SubsAppGroupListRoute
 import li.gkd.app.feature.subscription.SubsCategoryGroupPage
@@ -47,18 +27,27 @@ import li.gkd.app.feature.subscription.SubsGlobalGroupExcludePage
 import li.gkd.app.feature.subscription.SubsGlobalGroupExcludeRoute
 import li.gkd.app.feature.subscription.SubsGlobalGroupListPage
 import li.gkd.app.feature.subscription.SubsGlobalGroupListRoute
+import li.gkd.app.ui.AppConfigPage
+import li.gkd.app.ui.AppConfigRoute
+import li.gkd.app.ui.ImagePreviewPage
+import li.gkd.app.ui.ImagePreviewRoute
+import li.gkd.app.ui.PrivilegeServicePage
+import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.ui.WebViewPage
 import li.gkd.app.ui.WebViewRoute
-import li.gkd.app.feature.settings.WorkModePage
-import li.gkd.app.feature.settings.WorkModeRoute
 import li.gkd.app.ui.home.HomePage
-import li.gkd.app.ui.home.BlockA11ySetupPage
-import li.gkd.app.ui.home.ActionToastPage
-import li.gkd.app.ui.home.ActionToastRoute
-import li.gkd.app.ui.home.NotificationTextPage
-import li.gkd.app.ui.home.NotificationTextRoute
-import li.gkd.app.ui.home.BlockA11ySetupRoute
 import li.gkd.app.ui.home.HomeRoute
+
+// CLEAN：本文件只保留面向消费者必需的页面路由。
+//
+// 已随技术面收口移除的路由（对应页面文件已删除）：
+//   AdvancedPageRoute、SnapshotPageRoute / SnapshotPreviewRoute / SnapshotSettingsRoute、
+//   WorkModeRoute、ActionToastRoute、NotificationTextRoute、BlockA11ySetupRoute、
+//   BlockA11yAppListRoute、EditBlockAppListRoute、A11YScopeAppListRoute、
+//   ActivityLogRoute、A11yEventLogRoute、ActionLogRoute、CrashReportRoute、
+//   SubsAppListRoute、SubsCategoryRoute、UpsertRuleGroupRoute、CategoryEditorRoute。
+//
+// 保留 WebViewRoute 是刻意的：条款与隐私政策需要页内展示，不属于技术细节。
 
 private val editorTransitions = NavDisplay.transitionSpec {
     (slideInVertically(tween(250)) { it / 8 } + fadeIn(tween(250))) togetherWith fadeOut(tween(150))
@@ -70,29 +59,22 @@ private val editorTransitions = NavDisplay.transitionSpec {
 
 private val mainRouteEntryProvider = entryProvider {
     entry<HomeRoute> { HomePage() }
-    entry<WorkModeRoute> { WorkModePage() }
     entry<AboutRoute> { AboutPage() }
-    entry<ActionToastRoute>(metadata = editorTransitions) { ActionToastPage() }
-    entry<NotificationTextRoute>(metadata = editorTransitions) { NotificationTextPage() }
-    entry<BlockA11ySetupRoute>(metadata = editorTransitions) { BlockA11ySetupPage() }
-    entry<BlockA11yAppListRoute> { BlockA11yAppListPage() }
-    entry<PrivilegeServiceRoute> { PrivilegeServicePage() }
-    entry<A11YScopeAppListRoute> { A11yScopeAppListPage() }
-    entry<ActivityLogRoute> { ActivityLogPage() }
-    entry<A11yEventLogRoute> { A11yEventLogPage() }
-    entry<EditBlockAppListRoute>(metadata = editorTransitions) { EditBlockAppListPage() }
-    entry<WebViewRoute> { WebViewPage(it) }
+
+    // 应用规则控制面（消费级核心）
+    entry<AppConfigRoute> { AppConfigPage(it) }
+    entry<SubsAppGroupListRoute> { SubsAppGroupListPage(it) }
+    entry<SubsCategoryGroupRoute> { SubsCategoryGroupPage(it) }
     entry<SubsGlobalGroupListRoute> { SubsGlobalGroupListPage(it) }
     entry<SubsGlobalGroupExcludeRoute> { SubsGlobalGroupExcludePage(it) }
-    entry<ActionLogRoute> { ActionLogPage(it) }
-    entry<ImagePreviewRoute> { ImagePreviewPage(it) }
-    // CLEAN：SubsAppListRoute / SubsCategoryRoute / UpsertRuleGroupRoute / CategoryEditorRoute
-    // 已随订阅板块与本地规则编辑下线。
     entry<RuleExcludeEditorRoute>(metadata = editorTransitions) { RuleExcludeEditorPage(it) }
-    entry<SubsAppGroupListRoute> { SubsAppGroupListPage(it) }
-    entry<AppConfigRoute> { AppConfigPage(it) }
-    entry<CrashReportRoute> { CrashReportPage() }
-    entry<SubsCategoryGroupRoute> { SubsCategoryGroupPage(it) }
+
+    // 通用
+    entry<ImagePreviewRoute> { ImagePreviewPage(it) }
+    entry<WebViewRoute> { WebViewPage(it) }
+
+    // 特权服务页保留至特权链决策完成（见 docs/09 §6）
+    entry<PrivilegeServiceRoute> { PrivilegeServicePage() }
 }
 
 @Composable
