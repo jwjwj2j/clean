@@ -25,6 +25,7 @@ import li.gkd.app.MainActivity
 import li.gkd.app.META
 import li.gkd.app.data.subscription.SubscriptionState
 import li.gkd.app.notif.replaceNotificationTemplate
+import li.gkd.app.store.AppStore
 import li.gkd.app.store.AppStore.actionCountFlow
 import li.gkd.app.ui.share.statusText
 import li.gkd.app.store.AppStore.storeFlow
@@ -131,6 +132,18 @@ fun useSettingsPage(): ScaffoldExt {
             )
             // CLEAN：原「点击提示文案」与「通知文案」设置项指向的定制页面已随技术面收口下线，
             // 两项一并移除以保持设置页只保留消费者真正会调的开关。
+
+            // CLEAN 补充：规则匹配总开关（enableMatch）在上游只存在于已删除的订阅板块里，
+            // 消费者将失去唯一的应用内控制入口，因此在这里补回。这也是 MatchTileService
+            // 与状态通知「规则匹配已暂停」对应的那个开关。
+            GkTextSwitch(
+                title = UiStrings.rule_matching_label,
+                subtitle = UiStrings.rule_matching_description,
+                checked = store.enableMatch,
+                onCheckedChange = { enabled ->
+                    AppStore.updateSettings { it.copy(enableMatch = enabled) }
+                },
+            )
 
             GkTextSwitch(
                 title = UiStrings.hide_from_recents,

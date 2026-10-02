@@ -284,7 +284,8 @@ class MainViewModel : BaseViewModel() {
         LogUtils.d(intent)
         val uri = intent.data?.normalizeScheme()
         val source = intent.getStringExtra(EntryActivity.activityNavSourceName)
-        if (uri?.scheme == "gkd") {
+        // CLEAN：URL scheme 由 gkd:// 改为 clean://（与 AndroidManifest 的 intent-filter 一致）
+        if (uri?.scheme == "clean") {
             handleGkdUri(uri)
         } else if (source == OpenFileActivity::class.jvmName && uri != null) {
             if (!dialogRequests.confirm(

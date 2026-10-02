@@ -219,7 +219,8 @@ private class GkdWebViewClient() : AccompanistWebViewClient() {
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         val uri = request?.url
         if (uri != null && uri.host != "gkd.li") {
-            if (uri.scheme == "gkd") {
+            // CLEAN：应用内 scheme 由 gkd:// 改为 clean://
+            if (uri.scheme == "clean") {
                 (view?.context as? MainActivity)?.mainVm?.handleGkdUri(uri)
             } else {
                 IntentUtils.openUri(uri)

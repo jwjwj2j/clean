@@ -37,16 +37,15 @@ class StatusService : LifecycleHookService() {
         val store = storeFlow.value
         val ruleSummary = SubscriptionState.ruleSummaryFlow.value
         val count = actionCountFlow.value
-        val privilegeServiceStatus = privilegeServiceStatusFlow.value
+        // CLEAN：privilegeServiceStatus 已在特权封装后恒为 Disconnected，其通知分支一并移除
         val title = if (store.useCustomNotifText) {
             store.customNotifTitle.replaceNotificationTemplate(ruleSummary, count)
         } else {
             META.appName
         }
         return if (PermissionStates.appOpsRestrictedFlow.value) {
-            Triple(title, UiStrings.permission_restricted_reauthorize, "gkd://page/3")
-        } else if (privilegeServiceStatus == PrivilegeServiceStatus.DisconnectedDesired) {
-            Triple(title, UiStrings.privilege_service_connection_lost, "gkd://page/4")
+            // CLEAN：原指向 gkd://page/3（特权服务页），该页已下线；改为不带深链的普通提示
+            Triple(title, UiStrings.permission_restricted_reauthorize, defaultStatusNotification.uri)
         } else if (!automationRunning && !abRunning) {
             if (currentAppUseA11y) {
                 val text = if (a11yServiceEnabledFlow.value) {
@@ -75,7 +74,8 @@ class StatusService : LifecycleHookService() {
                 Triple(title, text, defaultStatusNotification.uri)
             }
         } else if (!store.enableMatch) {
-            Triple(title, UiStrings.rule_matching_pause, "gkd://page?tab=1")
+            // CLEAN：规则匹配总开关已迁到设置页（tab=3），深链随之更新；scheme 改为 clean://
+            Triple(title, UiStrings.rule_matching_pause, "clean://page?tab=3")
         } else if (store.useCustomNotifText) {
             Triple(
                 title,

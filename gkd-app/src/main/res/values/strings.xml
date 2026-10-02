@@ -1033,4 +1033,5 @@
     <string name="activation_got_it">知道了</string>
     <string name="activation_contact_support">联系客服</string>
     <string name="activation_terms_notice">继续使用即表示你已阅读并同意用户协议与隐私政策</string>
+    <string name="rule_matching_description">关闭后将不再自动跳过任何广告或弹窗</string>
 </resources>
