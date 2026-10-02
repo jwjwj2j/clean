@@ -91,29 +91,8 @@ sealed class RuleSortOption(override val value: Int, override val label: String)
     }
 }
 
-sealed class UpdateChannelOption(
-    override val value: Int,
-    override val label: String,
-    val url: String
-) : Option<Int> {
-    override val options get() = objects
-
-    data object Stable : UpdateChannelOption(
-        0,
-        UiStrings.update_channel_stable,
-        "https://registry.npmmirror.com/@gkd-kit/app/latest/files/index.json"
-    )
-
-    data object Beta : UpdateChannelOption(
-        1,
-        UiStrings.update_channel_beta,
-        "https://registry.npmmirror.com/@gkd-kit/app-beta/latest/files/index.json"
-    )
-
-    companion object {
-        val objects by lazy { listOf(Stable, Beta) }
-    }
-}
+// CLEAN：UpdateChannelOption（更新渠道：稳定版/测试版，指向 registry.npmmirror.com
+// 的 @gkd-kit/app 与 @gkd-kit/app-beta）已随应用内自更新整体移除。
 
 sealed interface BinaryOption : Option<Int> {
     fun include(flag: Int): Boolean = (value and flag) != 0

@@ -107,62 +107,9 @@ object FolderUtils {
         val othersApps: List<AppInfo> = AppInfoRepository.otherUserAppInfoMapFlow.value.values.toList(),
     )
 
-    @WorkerThread
-    fun buildLogFile(): File {
-        val tempDir = createGkdTempDir()
-        val files = listOf(dbFolder, storeFolder, subsFolder, logFolder, crashFolder).filter {
-            it.list()?.isNotEmpty() == true
-        }.toMutableList()
-        tempDir.resolve("source-paths.txt").also { file ->
-            app.assets.open(file.name).use { input ->
-                file.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            files.add(file)
-        }
-        tempDir.resolve("apps.json").also {
-            it.writeText(json.encodeToString(AppJsonData()))
-            files.add(it)
-        }
-        tempDir.resolve("permission.txt").also {
-            val grantedPermissions = PermissionStates.all.filter { state -> state.value }
-            if (grantedPermissions.isNotEmpty()) {
-                it.appendText("已授权\n" + grantedPermissions.joinToString("\n") { state -> state.name })
-                it.appendText("\n\n")
-            }
-            val deniedPermissions = PermissionStates.all.filter { state -> !state.value }
-            if (deniedPermissions.isNotEmpty()) {
-                it.appendText("未授权\n" + deniedPermissions.joinToString("\n") { state -> state.name })
-                it.appendText("\n\n")
-            }
-            if (AppInfoRepository.appListAuthAbnormalFlow.value) {
-                it.appendText("其它\n")
-                it.appendText("读取应用列表权限异常")
-            }
-            it.appendText("\n")
-            files.add(it)
-        }
-        val formattedJson = Json(from = json) {
-            prettyPrint = true
-        }
-        tempDir.resolve("gkd.json").also {
-            it.writeText(formattedJson.encodeToString(META))
-            files.add(it)
-        }
-        val logZipFile = ExportFileNames.reserve(
-            sharedDir,
-            "log-${ExportFileNames.timestamp(System.currentTimeMillis())}",
-            "zip",
-        )
-        try {
-            ZipUtils.zipFiles(files, logZipFile)
-            return logZipFile
-        } catch (e: Throwable) {
-            logZipFile.delete()
-            throw e
-        } finally {
-            tempDir.deleteRecursively()
-        }
-    }
+    // CLEAN：原 buildLogFile() 会打包 db/store/subs/log/crash 目录、应用列表、权限清单与
+    // META 信息，供「分享日志」上传到 GKD 的 GitHub 仓库。日志上传已移除，故一并删除。
+    //
+    // 注意：该函数还依赖 assets/source-paths.txt，而生成它的 GenerateSourcePathsTask
+    // 已随 api.gkd.li 构建产物上传一并删除 —— 保留此函数会在运行期直接抛 asset 缺失异常。
 }

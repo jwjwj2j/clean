@@ -49,7 +49,6 @@ import li.gkd.app.ui.style.titleItemPadding
 import li.gkd.app.util.ISSUES_URL
 import li.gkd.app.util.REPOSITORY_URL
 import li.gkd.app.util.ShortUrlSet
-import li.gkd.app.util.UpdateChannelOption
 import li.gkd.app.util.findOption
 import li.gkd.app.ui.share.launchUiAction
 import li.gkd.app.ui.share.launchUi
@@ -72,7 +71,7 @@ fun AboutPage() {
     var showVersionInfoDialog by rememberSaveable { mutableStateOf(false) }
     var showShareAppDialog by rememberSaveable { mutableStateOf(false) }
     val store by storeFlow.collectAsStateWithLifecycle()
-    val updateChannel = UpdateChannelOption.objects.findOption(store.updateChannel)
+    // CLEAN：updateChannel 局部变量已随自更新移除
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     Scaffold(
@@ -161,60 +160,9 @@ fun AboutPage() {
             )
 
             FeedbackSection()
-            GkSettingItem(
-                title = UiStrings.logs_export,
-                imageVector = GkIcons.Share,
-                onClick = {
-                    mainVm.shareLog.show()
-                }
-            )
-            if (mainVm.updateStatus != null) {
-                Text(
-                    text = UiStrings.action_update,
-                    modifier = Modifier.titleItemPadding(),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                GkTextMenu(
-                    title = UiStrings.update_channel,
-                    option = updateChannel
-                ) {
-                    if (mainVm.updateStatus.checkUpdatingFlow.value) return@GkTextMenu
-                    if (it.value == UpdateChannelOption.Beta.value) {
-                        mainVm.scope.launchUi {
-                            if (!mainVm.dialogRequests.confirm(
-                                title = UiStrings.version_channel,
-                                text = UiStrings.beta_channel_warning,
-                            )) return@launchUi
-                            AppStore.updateSettings { settings ->
-                                settings.copy(updateChannel = it.value)
-                            }
-                        }
-                    } else {
-                        AppStore.updateSettings { settings ->
-                            settings.copy(updateChannel = it.value)
-                        }
-                    }
-                }
-                Row(
-                    modifier = Modifier
-                        .clickable(
-                            onClick = throttle {
-                                mainVm.updateStatus.checkUpdate(true)
-                            }
-                        )
-                        .fillMaxWidth()
-                        .itemPadding(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = UiStrings.update_check,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    GkRotatingLoadingIcon(loading = mainVm.updateStatus.checkUpdatingFlow.collectAsStateWithLifecycle().value)
-                }
-            }
+            // CLEAN：原「导出/分享日志」（上传到 GKD 的 GitHub 仓库）与整个更新区块
+            // （更新渠道选择 + 检查更新）已移除。
+            // 自更新在 CLEAN 侧载分发下会从 GKD 的发布渠道装错包，改由分发渠道更新。
             GkPageBottomSpace()
         }
     }

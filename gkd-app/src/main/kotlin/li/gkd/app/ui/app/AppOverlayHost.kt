@@ -24,16 +24,14 @@ fun AppOverlayHost() {
     if (!mainVm.termsAcceptedFlow.collectAsStateWithLifecycle().value) {
         GkTermsAcceptDialog()
     } else {
-        // CLEAN：原 subsSheet（订阅管理面板）与 subsLinkDialog（添加订阅链接）已随订阅板块下线。
+        // CLEAN：原 subsSheet / subsLinkDialog（订阅管理）、githubUpload / shareLog（日志上传到
+        // GKD 的 GitHub 仓库）、updateStatus.UpgradeDialog（应用内自更新）均已移除。
         UiAutomationAlreadyRegisteredDlg()
         AccessRestrictedSettingsDlg()
         mainVm.dialogRequests.Render()
-        mainVm.githubUpload.Render()
-        mainVm.updateStatus?.UpgradeDialog()
         mainVm.ruleGroupState.Render()
         mainVm.ruleControlDialog.Render()
         mainVm.textDialog.Render()
-        mainVm.shareLog.Render()
     }
 }
 

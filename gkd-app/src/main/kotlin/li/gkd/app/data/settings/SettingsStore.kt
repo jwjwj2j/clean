@@ -7,7 +7,6 @@ import li.gkd.app.util.AppGroupOption
 import li.gkd.app.util.AppSortOption
 import li.gkd.app.util.AutomatorModeOption
 import li.gkd.app.util.RuleSortOption
-import li.gkd.app.util.UpdateChannelOption
 import li.gkd.app.util.UpdateTimeOption
 
 @Serializable
@@ -30,7 +29,7 @@ data class SettingsStore(
     val useCustomNotifText: Boolean = false,
     val customNotifTitle: String = META.appName,
     val customNotifText: String = UiStrings.notification_summary_template,
-    val updateChannel: Int = if (META.isBeta) UpdateChannelOption.Beta.value else UpdateChannelOption.Stable.value,
+    // CLEAN：updateChannel（更新渠道）已随应用内自更新移除；老配置中的该字段由 ignoreUnknownKeys 忽略。
     val appSort: Int = AppSortOption.ByUsedTime.value,
     val showBlockApp: Boolean = true,
     val appRuleSort: Int = RuleSortOption.ByDefault.value,

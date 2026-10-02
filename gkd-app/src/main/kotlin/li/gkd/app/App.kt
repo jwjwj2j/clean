@@ -96,9 +96,8 @@ data class AppMeta(
         plus(if (tagName != null) "tree/$tagName" else "commit/$commitId")
     }
     // CLEAN 单变体化后 channel 固定为 "clean"（见 gkd-app/build.gradle.kts 的 defaultConfig）。
-    // 自更新已关闭，updateEnabled 仅保留给尚未清理的调用点，恒为 false。
+    // 应用内自更新已整体移除，因此不再需要 updateEnabled。
     val isCleanChannel get() = channel == "clean"
-    val updateEnabled get() = false
     val isBeta get() = versionName.contains("beta")
 }
 

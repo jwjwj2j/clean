@@ -243,6 +243,5 @@ class SettingsRepositoryTest {
     private fun testDefaults() = SettingsStore(
         actionToast = "CLEAN",
         customNotifTitle = "CLEAN",
-        updateChannel = 0,
     )
 }

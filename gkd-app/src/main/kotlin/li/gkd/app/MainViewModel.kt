@@ -37,9 +37,7 @@ import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.ui.WebViewRoute
 import li.gkd.app.ui.component.DialogRequests
-import li.gkd.app.ui.component.GithubUploadState
 import li.gkd.app.feature.subscription.RuleGroupState
-import li.gkd.app.ui.component.ShareLogState
 import li.gkd.app.domain.rule.RuleGroupTarget
 import li.gkd.app.ui.component.TextDialogState
 import li.gkd.app.ui.home.BottomNavItem
@@ -52,7 +50,6 @@ import li.gkd.app.util.AutomatorModeOption
 import li.gkd.app.util.LogUtils
 import li.gkd.app.util.ShortUrlSet
 import li.gkd.app.util.ThrottleTimer
-import li.gkd.app.util.UpdateStatus
 import li.gkd.app.util.FolderUtils
 import li.gkd.app.util.findOption
 import li.gkd.app.util.json
@@ -180,18 +177,9 @@ class MainViewModel : BaseViewModel() {
         delete()
     }
 
-    val updateStatus = if (META.updateEnabled) UpdateStatus(scope) else null
-
-    val githubUpload = GithubUploadState(
-        scope = scope,
-        onOpenCookieHelp = { navigateWebPage(ShortUrlSet.URL1) },
-    )
-
-    val shareLog = ShareLogState(
-        scope = scope,
-        githubUpload = githubUpload,
-    )
-
+    // CLEAN：updateStatus（应用内自更新）、githubUpload 与 shareLog（把日志上传到 GKD 的
+    // GitHub 仓库）全部移除。自更新会从 GKD 的发布渠道下载并安装 APK，对 CLEAN 属于
+    // 装错包的行为；日志上传则会把用户数据发给第三方仓库。
     // CLEAN：subsLinkDialog（添加/修改订阅链接）与 subsSheet（订阅管理面板）已随订阅板块下线。
     // 规则来源固定为内置订阅源，用户不再需要任何订阅管理入口。
 
@@ -386,10 +374,7 @@ class MainViewModel : BaseViewModel() {
             FolderUtils.clearCache()
         }
 
-        if (termsAcceptedFlow.value && updateStatus?.canRecheck == true) {
-            updateStatus.checkUpdate()
-        }
-
+        // CLEAN：原有的启动自更新检查已移除（改由分发渠道更新）
         scope.launchLogged(Dispatchers.IO) {
             trimCrashDataFiles()
             val list = (FolderUtils.crashTempFolder.listFiles() ?: emptyArray()).mapNotNull {
