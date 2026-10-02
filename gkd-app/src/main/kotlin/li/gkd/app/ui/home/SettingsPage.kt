@@ -3,8 +3,6 @@ package li.gkd.app.ui.home
 import li.gkd.app.ui.component.GkPageBottomSpace
 import li.gkd.app.MainViewModel
 
-import androidx.activity.compose.LocalActivity
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
@@ -12,93 +10,35 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import li.gkd.app.text.UiStrings
-import li.gkd.app.MainActivity
-import li.gkd.app.META
-import li.gkd.app.data.subscription.SubscriptionState
-import li.gkd.app.notif.replaceNotificationTemplate
 import li.gkd.app.store.AppStore
-import li.gkd.app.store.AppStore.actionCountFlow
-import li.gkd.app.ui.share.statusText
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.feature.settings.AboutRoute
 import li.gkd.app.ui.style.titleItemPadding
 import li.gkd.app.util.AndroidTarget
 import li.gkd.app.util.DarkThemeOption
 import li.gkd.app.util.findOption
-import li.gkd.app.util.FolderUtils
 import li.gkd.app.ui.share.launchUi
-import li.gkd.app.util.ToastUtils.toast
 import li.gkd.app.ui.component.GkSettingItem
-import li.gkd.app.ui.component.GkTextListDialog
 import li.gkd.app.ui.component.GkTextMenu
 import li.gkd.app.ui.component.GkTextSwitch
 import li.gkd.app.ui.component.GkTopAppBar
 import li.gkd.app.ui.component.rememberColumnScrollState
 
-private const val ZIP_MIME_TYPE = "application/zip"
-
 @Composable
 fun useSettingsPage(): ScaffoldExt {
     val mainVm = MainViewModel.requireCurrent()
-    val context = LocalActivity.current as MainActivity
     val vm = viewModel<SettingsVm>()
     val store by storeFlow.collectAsStateWithLifecycle()
     val actionScope = vm.scope
-    var showBackupDialog by rememberSaveable { mutableStateOf(false) }
-    var showExportBackupDialog by rememberSaveable { mutableStateOf(false) }
-
-    if (showBackupDialog) {
-        GkTextListDialog(
-            onDismiss = { showBackupDialog = false },
-            textList = listOf(
-                UiStrings.backup_import_label to {
-                    actionScope.launchUi {
-                        val uri = mainVm.activityResults.openDocument(ZIP_MIME_TYPE)
-                        if (uri == null) {
-                            toast(UiStrings.file_not_selected)
-                            return@launchUi
-                        }
-                        vm.importBackup(uri)
-                    }
-                },
-                UiStrings.backup_export to {
-                    showExportBackupDialog = true
-                },
-            )
-        )
-    }
-    if (showExportBackupDialog) {
-        GkTextListDialog(
-            onDismiss = { showExportBackupDialog = false },
-            textList = listOf(
-                UiStrings.action_share to {
-                    actionScope.launchUi {
-                        val file = vm.exportBackup()
-                        context.shareFile(file, UiStrings.backup_share)
-                    }
-                },
-                UiStrings.action_save_to_downloads to {
-                    actionScope.launchUi {
-                        FolderUtils.withTemporaryZip(
-                            create = vm::exportBackup,
-                            delete = FolderUtils::deleteSharedFile,
-                        ) { file ->
-                            context.saveFileToDownloads(file)
-                        }
-                    }
-                },
-            )
-        )
-    }
+    // CLEAN：原「备份与恢复」（导入 zip / 导出 zip / 存到下载）与整个备份对话框已移除。
+    // 备份格式（BackupFormat / BackupManager / BackupArchiveReader）与 OpenFileActivity 导入入口
+    // 一并删除。SettingsRepository.withBackupRestore 因其并发与原子性测试仍有价值而保留，
+    // 分享 APK 用到的 SystemDownloads / ExportFileNames 也保留。
 
     val pageScrollState = rememberColumnScrollState()
     val scrollBehavior = pageScrollState.scrollBehavior
@@ -197,10 +137,8 @@ fun useSettingsPage(): ScaffoldExt {
                 color = MaterialTheme.colorScheme.primary,
             )
 
-            // CLEAN：原「高级设置」入口已移除（HTTP、悬浮窗、GitHub cookie 等技术开关随页面一并下线）
-            GkSettingItem(title = UiStrings.backup_restore, onClick = {
-                showBackupDialog = true
-            })
+            // CLEAN：原「高级设置」与「备份与恢复」入口均已移除（HTTP、悬浮窗、GitHub cookie、
+            // 备份导入导出等技术面随页面一并下线）
 
             GkSettingItem(title = UiStrings.about_title, onClick = {
                 mainVm.navigatePage(AboutRoute)

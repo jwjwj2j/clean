@@ -6,7 +6,6 @@ import li.gkd.app.service.fixRestartAutomatorService
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.store.AppStore
 import li.gkd.app.ui.share.BaseViewModel
-import li.gkd.app.data.backup.BackupManager
 import li.gkd.app.util.ToastUtils.toast
 import java.io.File
 
@@ -54,11 +53,5 @@ class SettingsVm : BaseViewModel() {
         AppStore.updateSettings { it.copy(enableDynamicColor = enabled) }
     }
 
-    suspend fun importBackup(uri: Uri) {
-        toast(UiStrings.backup_import_progress)
-        val skipped = BackupManager.importData(uri)
-        toast(if (skipped > 0) UiStrings.backup_import_skipped_config_count(skipped) else UiStrings.import_success)
-    }
-
-    suspend fun exportBackup(): File = BackupManager.exportData()
+    // CLEAN：原 importBackup(uri) / exportBackup() 已随备份功能移除
 }

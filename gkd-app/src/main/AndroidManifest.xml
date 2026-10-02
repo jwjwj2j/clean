@@ -68,21 +68,8 @@
                 <data android:scheme="clean" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".entry.OpenFileActivity"
-            android:exported="true"
-            android:theme="@style/TransparentTheme">
-            <intent-filter android:label="@string/import_backup">
-                <action android:name="android.intent.action.VIEW" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data android:scheme="content" />
-                <data android:mimeType="application/zip" />
-                <data android:mimeType="application/x-zip-compressed" />
-            </intent-filter>
-        </activity>
+        <!-- CLEAN：原 OpenFileActivity（接收 content:// 的 zip 备份文件并导入）已随备份功能移除。
+             它同时是「导入备份」的对外入口，删除后应用不再接受外部 zip 文件。 -->
         <activity
             android:name=".entry.OpenTileActivity"
             android:exported="true"

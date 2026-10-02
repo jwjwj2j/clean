@@ -21,10 +21,8 @@ import li.gkd.app.a11y.useEnabledA11yServicesFlow
 import li.gkd.app.data.CrashData
 import li.gkd.app.data.RawSubscription
 import li.gkd.app.data.appinfo.AppInfoRepository
-import li.gkd.app.data.backup.BackupManager
 import li.gkd.app.data.trimCrashDataFiles
 import li.gkd.app.entry.EntryActivity
-import li.gkd.app.entry.OpenFileActivity
 import li.gkd.app.priv.AutomationService
 import li.gkd.app.priv.privilegeContextFlow
 import li.gkd.app.priv.uiAutomationFlow
@@ -287,18 +285,8 @@ class MainViewModel : BaseViewModel() {
         // CLEAN：URL scheme 由 gkd:// 改为 clean://（与 AndroidManifest 的 intent-filter 一致）
         if (uri?.scheme == "clean") {
             handleGkdUri(uri)
-        } else if (source == OpenFileActivity::class.jvmName && uri != null) {
-            if (!dialogRequests.confirm(
-                    title = UiStrings.backup_import_label,
-                    text = UiStrings.backup_import_confirmation,
-                )
-            ) {
-                return@launchUi
-            }
-            toast(UiStrings.backup_import_progress)
-            withContext(Dispatchers.IO) { BackupManager.importData(uri) }
-            toast(UiStrings.import_success)
         }
+        // CLEAN：原 OpenFileActivity 分支（zip 备份导入）已随备份功能移除
     }
 
     val termsAcceptedFlow: StateFlow<Boolean>

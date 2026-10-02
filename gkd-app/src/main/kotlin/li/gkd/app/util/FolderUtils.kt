@@ -80,24 +80,8 @@ object FolderUtils {
         removeExpired(tempDir)
     }
 
-    suspend fun deleteSharedFile(file: File) = withContext(NonCancellable + Dispatchers.IO) {
-        if (file.parentFile == sharedDir && file.exists() && !file.delete()) {
-            LogUtils.d("无法清理共享缓存文件", file.absolutePath)
-        }
-    }
-
-    suspend fun <T> withTemporaryZip(
-        create: suspend () -> File,
-        delete: suspend (File) -> Unit,
-        consume: suspend (File) -> T,
-    ): T {
-        val file = create()
-        try {
-            return consume(file)
-        } finally {
-            withContext(NonCancellable) { delete(file) }
-        }
-    }
+    // CLEAN：原 deleteSharedFile() 与 withTemporaryZip() 是备份导出的配套缓存清理工具，
+    // 只被设置页的「备份与恢复」流程使用；备份功能移除后已无调用者，一并删除。
 
     @Serializable
     private data class AppJsonData(
