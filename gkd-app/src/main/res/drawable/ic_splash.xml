@@ -1,0 +1,23 @@
+<!--
+  CLEAN 启动页图标（windowSplashScreenAnimatedIcon）。
+
+  与 ic_launcher_foreground 同一个「C」圆环标记，但画得更大以填满启动页图标区域：
+  圆心 (54,54)、半径 32、描边 14。弧端点同样取 ±45°
+  （76.63 = 54 + 32*cos45°，31.37/76.63 = 54 ∓ 32*sin45°），圆弧恰好 270°。
+  外缘半径 32 + 14/2 = 39，范围 15..93，完整落在 108x108 画布内。
+
+  颜色取自 @color/ic_launcher_foreground_tint，随浅色/深色主题反色。
+  用它取代了上游的 @mipmap/gkd_black 与 @mipmap/gkd_white 两张 PNG，
+  因此本工程不再需要任何位图图标资源。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="@color/ic_launcher_foreground_tint"
+        android:strokeWidth="14"
+        android:strokeLineCap="round"
+        android:pathData="M76.63,31.37 A32,32 0 1 0 76.63,76.63" />
+</vector>
