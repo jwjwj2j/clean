@@ -13,9 +13,9 @@ import li.gkd.app.text.UiStrings
 import li.gkd.app.priv.AutomationService
 import li.gkd.app.priv.uiAutomationOccupiedFlow
 import li.gkd.app.service.A11yService
-import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.ui.component.GkAlertDialog
 import li.gkd.app.ui.component.GkTermsAcceptDialog
+import li.gkd.app.util.IntentUtils
 import li.gkd.app.util.ToastUtils.toast
 
 @Composable
@@ -54,15 +54,9 @@ private fun AccessRestrictedSettingsDlg() {
         }
     }
     val accessRestrictedSettingsShow by accessRestrictedSettingsShowFlow.collectAsStateWithLifecycle()
-    val mainVm = MainViewModel.requireCurrent()
-    val isPrivilegeServicePage = mainVm.topRoute is PrivilegeServiceRoute
-    LaunchedEffect(isPrivilegeServicePage, accessRestrictedSettingsShow) {
-        if (isPrivilegeServicePage && accessRestrictedSettingsShow && !a11yRunning) {
-            toast(UiStrings.permission_reauthorize_to_unrestrict)
-            dismissAccessRestrictedSettingsDialog()
-        }
-    }
-    if (accessRestrictedSettingsShow && !isPrivilegeServicePage && !a11yRunning) {
+    // CLEAN：原「跳转特权服务页」的分支已移除。特权入口封装下线后，用户只能去系统的
+    // 无障碍设置页手动放行受限设置，因此这里直接打开系统页面。
+    if (accessRestrictedSettingsShow && !a11yRunning) {
         GkAlertDialog(
             title = {
                 Text(text = UiStrings.permission_restricted)
@@ -76,7 +70,7 @@ private fun AccessRestrictedSettingsDlg() {
             confirmButton = {
                 TextButton({
                     dismissAccessRestrictedSettingsDialog()
-                    mainVm.navigatePage(PrivilegeServiceRoute)
+                    IntentUtils.openA11ySettings()
                 }) {
                     Text(text = UiStrings.permission_go_grant)
                 }

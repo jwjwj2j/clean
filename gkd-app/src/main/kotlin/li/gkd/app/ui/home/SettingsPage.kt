@@ -27,7 +27,6 @@ import li.gkd.app.data.subscription.SubscriptionState
 import li.gkd.app.notif.replaceNotificationTemplate
 import li.gkd.app.store.AppStore.actionCountFlow
 import li.gkd.app.ui.share.statusText
-import li.gkd.app.priv.privilegeContextFlow
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.feature.settings.AboutRoute
 import li.gkd.app.ui.style.titleItemPadding
@@ -51,7 +50,6 @@ fun useSettingsPage(): ScaffoldExt {
     val mainVm = MainViewModel.requireCurrent()
     val context = LocalActivity.current as MainActivity
     val vm = viewModel<SettingsVm>()
-    val privilegeAvailable = privilegeContextFlow.collectAsStateWithLifecycle().value != null
     val store by storeFlow.collectAsStateWithLifecycle()
     val actionScope = vm.scope
     var showBackupDialog by rememberSaveable { mutableStateOf(false) }

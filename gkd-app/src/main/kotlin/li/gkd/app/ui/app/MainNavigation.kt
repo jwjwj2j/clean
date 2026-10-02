@@ -31,8 +31,6 @@ import li.gkd.app.ui.AppConfigPage
 import li.gkd.app.ui.AppConfigRoute
 import li.gkd.app.ui.ImagePreviewPage
 import li.gkd.app.ui.ImagePreviewRoute
-import li.gkd.app.ui.PrivilegeServicePage
-import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.ui.WebViewPage
 import li.gkd.app.ui.WebViewRoute
 import li.gkd.app.ui.home.HomePage
@@ -73,8 +71,6 @@ private val mainRouteEntryProvider = entryProvider {
     entry<ImagePreviewRoute> { ImagePreviewPage(it) }
     entry<WebViewRoute> { WebViewPage(it) }
 
-    // 特权服务页保留至特权链决策完成（见 docs/09 §6）
-    entry<PrivilegeServiceRoute> { PrivilegeServicePage() }
 }
 
 @Composable

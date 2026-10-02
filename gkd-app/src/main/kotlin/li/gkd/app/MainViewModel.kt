@@ -34,7 +34,6 @@ import li.gkd.app.service.A11yService
 import li.gkd.app.store.AppStore
 import li.gkd.app.store.FileStateStore
 import li.gkd.app.store.AppStore.storeFlow
-import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.ui.WebViewRoute
 import li.gkd.app.ui.component.DialogRequests
 import li.gkd.app.feature.subscription.RuleGroupState
@@ -119,8 +118,10 @@ class MainViewModel : BaseViewModel() {
     }
 
     val activityResults = ActivityResultRequests()
+    // CLEAN：原实现在此跳转 PrivilegeServicePage 去借特权授予权限；特权入口已封装移除，
+    // 改为直接打开系统的无障碍设置页，让用户手动授权。
     val permissionRequests = PermissionRequests {
-        navigatePage(PrivilegeServiceRoute)
+        IntentUtils.openA11ySettings()
     }
 
     val backStack: NavBackStack<NavKey> = NavBackStack(HomeRoute)
@@ -265,7 +266,8 @@ class MainViewModel : BaseViewModel() {
                 }
 
                 // CLEAN：gkd://page/1（高级设置）与 /2（快照）已下线，交由 else 提示
-                "/3", "/4" -> navigatePage(PrivilegeServiceRoute)
+                // CLEAN：gkd://page/1（高级设置）、/2（快照）、/3 与 /4（特权服务）对应的
+                // 页面均已下线，统一交由 else 提示。
                 else -> notFoundToast()
             }
 
@@ -322,43 +324,9 @@ class MainViewModel : BaseViewModel() {
         AutomatorModeOption.objects.findOption(it.automatorMode)
     }
 
-    private var updateAutomatorModeJob: Job? = null
-
-    private fun applyAutomatorMode(option: AutomatorModeOption) {
-        AppStore.updateAutomatorMode(option.value)
-        A11yService.instance?.shutdown()
-        uiAutomationFlow.value?.shutdown()
-    }
-
-    fun updateAutomatorMode(option: AutomatorModeOption) {
-        updateAutomatorModeJob?.cancel()
-        if (automatorModeFlow.value == option) return
-        if (
-            option != AutomatorModeOption.AutomationMode ||
-            privilegeContextFlow.value == null
-        ) {
-            applyAutomatorMode(option)
-            return
-        }
-        updateAutomatorModeJob = scope.launch {
-            val occupied = try {
-                withContext(Dispatchers.IO) {
-                    AutomationService.isOtherUiAutomationRunning()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                toast(UiStrings.automation_state_check_failed(e.message))
-                LogUtils.d("detect automation state failed", e)
-                return@launch
-            }
-            if (occupied) {
-                AutomationService.showOccupiedWarning()
-                return@launch
-            }
-            applyAutomatorMode(option)
-        }
-    }
+    // CLEAN：原 updateAutomatorMode / applyAutomatorMode 用于在「工作模式」页切换
+    // 无障碍模式与自动化模式（特权）。该页面已删除，且特权入口整体封装下线，
+    // 因此这两个函数不再有任何调用者，一并移除（automatorModeFlow 仍用于仪表盘展示）。
 
     private var tempCrashDataList = emptyList<CrashData>()
 

@@ -58,7 +58,6 @@ import li.gkd.app.store.AppStore.actualA11yScopeAppList
 import li.gkd.app.store.AppStore.actionCountFlow
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.ui.AppConfigRoute
-import li.gkd.app.ui.PrivilegeServiceRoute
 import li.gkd.app.ui.WebViewRoute
 import li.gkd.app.ui.app.showAccessRestrictedSettingsDialog
 import li.gkd.app.ui.style.itemHorizontalPadding
@@ -102,23 +101,8 @@ fun useDashboardPage(): ScaffoldExt {
                     text = stringResource(R.string.app_name)
                 )
             }, actions = {
-                val (contentDescription, contentColor) = when (privilegeServiceStatus) {
-                    PrivilegeServiceStatus.Connected -> UiStrings.privilege_service_state_connected to MaterialTheme.colorScheme.onSurfaceVariant
-                    PrivilegeServiceStatus.Disconnected -> UiStrings.privilege_service_state_disconnected to MaterialTheme.colorScheme.onSurfaceVariant
-                    PrivilegeServiceStatus.DisconnectedDesired -> UiStrings.privilege_service_state_lost to MaterialTheme.colorScheme.error
-                }
-                GkTooltipIconButtonBox(contentDescription) {
-                    IconButton(
-                        modifier = Modifier.semantics { onClick(label = UiStrings.privilege_service_open, action = null) },
-                        onClick = { mainVm.navigatePage(PrivilegeServiceRoute) },
-                    ) {
-                        GkAnimatedRocketIcon(
-                            active = privilegeServiceStatus == PrivilegeServiceStatus.Connected,
-                            contentDescription = contentDescription,
-                            tint = contentColor,
-                        )
-                    }
-                }
+                // CLEAN：原右上角的「特权服务」状态图标（跳转 PrivilegeServicePage）已移除。
+                // 特权能力按 docs/09 §6.3 封装：实现保留，但消费者看不到任何入口。
             })
         }) { contentPadding ->
         val a11yRunning by A11yService.isRunning.collectAsStateWithLifecycle()
@@ -133,17 +117,12 @@ fun useDashboardPage(): ScaffoldExt {
             verticalArrangement = Arrangement.spacedBy(itemHorizontalPadding / 2)
         ) {
             if (PermissionStates.appOpsRestrictedFlow.collectAsStateWithLifecycle().value) {
+                // CLEAN：原卡片点击会跳转 PrivilegeServicePage 去借特权解除受限；
+                // 特权入口已封装移除，这里改为纯提示，用户需在系统设置中自行处理。
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics(mergeDescendants = true) {
-                            this.onClick(label = UiStrings.privilege_service_open, action = null)
-                        },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    onClick = throttle {
-                        mainVm.navigatePage(PrivilegeServiceRoute)
-                    },
                 ) {
                     Row(
                         modifier = Modifier
@@ -158,7 +137,6 @@ fun useDashboardPage(): ScaffoldExt {
                             text = UiStrings.permission_restricted_privilege_notice,
                             style = MaterialTheme.typography.bodyLarge,
                         )
-                        GkIcon(imageVector = GkIcons.KeyboardArrowRight)
                     }
                 }
             }
@@ -189,31 +167,10 @@ fun useDashboardPage(): ScaffoldExt {
                     },
                     mode = automatorMode.label,
                 )
-            } else {
-                val automation by uiAutomationFlow.collectAsStateWithLifecycle()
-                ServiceStatusCard(
-                    subtitle = if (automation != null) {
-                        UiStrings.automation_running
-                    } else if (privilegeContext == null) {
-                        UiStrings.automation_unauthorized
-                    } else {
-                        if (store.enableAutomator && a11yPartDisabledFlow.collectAsStateWithLifecycle().value) {
-                            UiStrings.automation_partially_disabled
-                        } else {
-                            UiStrings.automation_stopped
-                        }
-                    },
-                    checked = automation != null,
-                    onCheckedChange = { newEnabled ->
-                        if (newEnabled && privilegeContext == null) {
-                            mainVm.navigatePage(PrivilegeServiceRoute)
-                        } else {
-                            switchAutomatorService()
-                        }
-                    },
-                    mode = automatorMode.label,
-                )
             }
+            // CLEAN：原 else 分支展示「自动化模式」（特权服务）状态卡片，并会在未连接时跳转
+            // PrivilegeServicePage。特权能力已按 docs/09 §6.3 封装 —— 保留实现但不给用户入口，
+            // 因此自动化模式在消费级产品中不可达，这里只保留无障碍服务状态卡片。
 
             PageSwitchItemCard(
                 imageVector = GkIcons.Notifications,

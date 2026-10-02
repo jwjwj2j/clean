@@ -41,7 +41,6 @@ import li.gkd.app.notif.NotificationChannels
 import li.gkd.app.platform.lifecycle.MainActivityVisibility
 import li.gkd.app.platform.lifecycle.RuntimeStateSynchronizer
 import li.gkd.app.priv.PrivilegeOwnerLifecycle
-import li.gkd.app.priv.gkdPrivilegeUiConfig
 import li.gkd.app.priv.initPrivilege
 import li.gkd.app.service.initA11yWhiteAppList
 import li.gkd.app.store.AppStore
@@ -55,7 +54,6 @@ import li.gkd.app.util.ToastUtils.toast
 import li.gkd.db.Db
 import li.gkd.db.initialize
 import org.lsposed.hiddenapibypass.HiddenApiBypass
-import priv.kit.ui.PrivilegeUi
 import kotlin.time.Duration.Companion.milliseconds
 
 
@@ -272,9 +270,12 @@ class App : Application() {
         AppInfoRepository.initialize()
         initA11yFeat()
         initPrivilege()
-        appScope.launchLogged(Dispatchers.IO) {
-            PrivilegeUi.startSilently(gkdPrivilegeUiConfig)
-        }
+        // CLEAN 特权封装边界（docs/09 §6.3）：
+        // 原实现在此调用 PrivilegeUi.startSilently(gkdPrivilegeUiConfig)，那是唯一能让特权服务
+        // 在“无用户操作”下自行启动的路径。特权 UI（PrivilegeServicePage 与鉴权组件）已移除，
+        // 用户没有任何入口去授权，因此这里也不再静默启动 —— AutomationService 与
+        // privilegeContextFlow 在消费级产品中保持不可达，纯无障碍路径不受影响。
+        // priv/** 的实现整体保留，日后若要恢复特权能力，先跑 10 机型通过率再决定。
         appScope.launchLogged(Dispatchers.IO) {
             SubscriptionRepository.initialize()
         }
