@@ -19,6 +19,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import com.clean.click.activation.ActivationManager
 import li.gkd.app.text.UiStrings
 import li.gkd.app.platform.lifecycle.onCreated
 import li.gkd.app.platform.lifecycle.useMainActivityLifecycle
@@ -115,6 +116,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * CLEAN：回到前台时复检激活状态。
+     * 覆盖两个场景：用户把系统时间调回去（限时码）与激活跨天到期。
+     * allowWrite = false —— 只读复检，不更新 lastSeen。
+     */
+    override fun onResume() {
+        super.onResume()
+        ActivationManager.refresh(allowWrite = false)
     }
 
     private fun fixTransparentNavigationBar() {

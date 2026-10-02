@@ -6,6 +6,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.atomicfu.atomic
 import kotlinx.atomicfu.getAndUpdate
+import com.clean.click.activation.ActivationManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
@@ -77,6 +78,10 @@ class A11yRuleEngine(private val service: A11yCommonImpl) {
     private val eventDeque = ArrayDeque<A11yEvent>()
     fun onA11yEvent(event: AccessibilityEvent?) {
         if (!effective) return
+        // CLEAN 激活闸门：未激活设备即使已授权无障碍，规则引擎也完全空转。
+        // 只靠 UI 层的 ActivationGate 是不够的 —— 无障碍服务由系统启动，
+        // 绕过界面层仍可能让规则跑起来。
+        if (!ActivationManager.isActivatedFlow.value) return
         if (!event.isUseful()) return
         // 拒绝副屏无障碍事件
         if (AndroidTarget.TIRAMISU && event.displayId != Display.DEFAULT_DISPLAY) return

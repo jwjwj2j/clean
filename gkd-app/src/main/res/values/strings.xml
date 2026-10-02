@@ -1012,4 +1012,25 @@
     <string name="app_rule_whitelist_remove_confirm">将当前应用移出应用白名单？\n\n移除后，应用白名单将不再阻止此应用执行规则。规则开关配置保持不变。</string>
     <string name="app_rule_whitelist_remove_follow_confirm">将当前应用移出应用白名单？\n\n局部关闭正在跟随应用白名单，此应用的局部关闭也将同时解除。规则开关配置保持不变。</string>
     <string name="app_rule_partial_disable_remove_confirm">将当前应用移出无障碍白名单？\n\n移除后，不再因局部关闭功能在此应用内关闭服务。应用白名单和规则开关配置保持不变。</string>
+
+    <!-- CLEAN 激活模块文案 -->
+    <string name="activation_title">激活 CLEAN</string>
+    <string name="activation_subtitle">CLEAN 需要激活码才能使用。请把下面的设备码发送给客服，获取属于本机的激活码。</string>
+    <string name="activation_device_code_label">本机设备码</string>
+    <string name="activation_copy_device_code">复制设备码</string>
+    <string name="activation_device_code_copied">设备码已复制</string>
+    <string name="activation_device_code_hint">设备码与本机绑定，更换设备后需要重新获取激活码。清除应用数据也可能导致设备码变化。</string>
+    <string name="activation_input_label">激活码</string>
+    <string name="activation_submit">激活</string>
+    <string name="activation_success">激活成功，正在进入…</string>
+    <string name="activation_invalid">激活码无效，请检查是否输入完整</string>
+    <string name="activation_device_mismatch">此激活码不适用于本设备，请核对设备码</string>
+    <string name="activation_expired">激活码已到期</string>
+    <string name="activation_expired_on">激活码已于 %1$s 到期</string>
+    <string name="activation_clock_anomaly">检测到系统时间异常，请校准后重试</string>
+    <string name="activation_expiring_soon">激活码将在 %1$s 天后到期，请及时续费</string>
+    <string name="activation_expiring_soon_unknown">激活码即将到期，请及时续费</string>
+    <string name="activation_got_it">知道了</string>
+    <string name="activation_contact_support">联系客服</string>
+    <string name="activation_terms_notice">继续使用即表示你已阅读并同意用户协议与隐私政策</string>
 </resources>

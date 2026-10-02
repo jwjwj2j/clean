@@ -31,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
+import com.clean.click.activation.ActivationManager
 import li.gkd.app.a11y.initA11yFeat
 import li.gkd.app.data.CrashData
 import li.gkd.app.data.subscription.SubscriptionRepository
@@ -264,6 +265,9 @@ class App : Application() {
     private fun initializeRuntimeComponents() {
         initToast()
         AppStore.initialize()
+        // CLEAN：激活状态必须尽早初始化，UI 与规则引擎都依赖它。
+        // 放在 AppStore 之后、其它组件之前，避免首帧渲染时状态未就绪。
+        ActivationManager.initialize(this)
         // CLEAN：ExposeService（第三方触发快照）与 clearHttpSubs()（HTTP 订阅）已随快照 / HTTP 下线
         NotificationChannels.initialize()
         AppInfoRepository.initialize()
