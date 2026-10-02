@@ -130,9 +130,9 @@ import li.gkd.app.ui.component.rememberListScrollState
  *   它不改动 `AppListVm` / `AppFilter` 的任何状态。
  */
 private enum class GridFilterTab(val label: String) {
-    All("全部"),
-    Configured("已配置"),
-    Unconfigured("未配置"),
+    All(UiStrings.app_filter_all),
+    Configured(UiStrings.app_filter_configured),
+    Unconfigured(UiStrings.app_filter_unconfigured),
 }
 
 /** 某个包名在现有 `RuleSummary` 下是否存在规则，等价于 `GkRuleStatsData.hasRules`。 */
@@ -517,13 +517,13 @@ private fun AppListEmptyState(hint: String?) {
         )
         Text(
             modifier = Modifier.padding(top = cardCorner),
-            text = "暂无应用",
+            text = UiStrings.app_list_empty,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             modifier = Modifier.padding(top = lineGap),
-            text = hint ?: "去「全部」里配置规则吧",
+            text = hint ?: UiStrings.app_list_empty_hint,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         )

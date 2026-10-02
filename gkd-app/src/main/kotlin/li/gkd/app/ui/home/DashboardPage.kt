@@ -85,13 +85,13 @@ import li.gkd.app.util.TimeUtils.throttle
 // CLEAN：设计稿 §1 新增的文案在本文件内以私有常量给出。
 // UiStrings 由 res/values/strings.xml 生成，而本次改造限定只允许修改本文件，
 // 不能新增字符串资源键；能命中既有键的文案仍然复用 UiStrings。
-private const val labelActionCount = "累计触发"
-private const val labelServiceRunning = "运行中"
-private const val labelServiceStopped = "已停止"
-private const val labelGlobalCount = "全局"
-private const val labelAppCount = "应用"
-private const val labelRuleCount = "规则"
-private const val labelRecentTrigger = "最近触发"
+private const val labelActionCount = UiStrings.dashboard_action_count_label
+private const val labelServiceRunning = UiStrings.dashboard_status_running
+private const val labelServiceStopped = UiStrings.dashboard_status_stopped
+private const val labelGlobalCount = UiStrings.dashboard_stat_global
+private const val labelAppCount = UiStrings.dashboard_stat_app
+private const val labelRuleCount = UiStrings.dashboard_stat_rule
+private const val labelRecentTrigger = UiStrings.dashboard_recent
 
 @Composable
 fun useDashboardPage(): ScaffoldExt {
