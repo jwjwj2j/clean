@@ -53,7 +53,7 @@ fun ActivationGate(content: @Composable () -> Unit) {
  * 激活页。
  *
  * v2 变更（取消设备绑定）：本页**不再展示设备码**。用户只需把卖家给的激活码粘进来。
- * 界面只做一件事：提示「激活码需在生成后 10 分钟内使用」，然后提交。
+ * 界面只做一件事：提示「激活码需在生成后 90 秒内使用」，然后提交。
  * 倒计时显示在卖家的 keygen 页面上，App 端不做倒计时（避免用户改系统时间造成误导）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,7 +147,7 @@ fun ActivationPage() {
 
             Spacer(Modifier.height(20.dp))
 
-            // 10 分钟窗口提示：放在提交按钮下方，用户失败时最容易回看这里
+            // 90 秒窗口提示：放在提交按钮下方，用户失败时最容易回看这里
             Text(
                 text = UiStrings.activation_window_hint,
                 style = MaterialTheme.typography.bodySmall,
@@ -202,7 +202,7 @@ private fun activationErrorText(outcome: ActivationManager.Outcome.Rejected): St
         ActivationError.BadSignature,
         -> UiStrings.activation_invalid
 
-        // 新增：签发后 10 分钟内未激活
+        // 签发后 90 秒内未激活
         ActivationError.WindowExpired -> UiStrings.activation_window_expired
 
         ActivationError.Expired -> outcome.expiredAt

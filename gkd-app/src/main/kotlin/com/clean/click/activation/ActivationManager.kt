@@ -14,7 +14,7 @@ import java.time.ZoneOffset
  *  - 删除设备指纹相关的一切（`deviceSecret`、设备码、`ANDROID_ID`、回退 UUID 文件）。
  *    激活页不再需要用户上报设备码，卖家也不需要绑定设备。
  *  - 校验用 [ActivationCodec.verify]，窗口只在**输入激活码那一刻**校验；
- *    复检已存储的码时传 `enforceWindow = false`，否则已激活设备会在签发 10 分钟后自我停用。
+ *    复检已存储的码时传 `enforceWindow = false`，否则已激活设备会在签发 90 秒后自我停用。
  *
  * 对外只暴露不可变状态与明确的业务方法（遵循仓库的 Compose 状态边界约定）。
  * 调用方：`App.onCreate()` 里 `ActivationManager.initialize(app)`，

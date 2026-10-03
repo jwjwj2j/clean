@@ -453,12 +453,12 @@
 
     <!-- CLEAN 激活模块文案 -->
     <string name="activation_title">激活 CLEAN</string>
-    <string name="activation_subtitle">CLEAN 需要激活码才能使用。请向客服获取激活码，并在生成后 10 分钟内完成激活。</string>
+    <string name="activation_subtitle">CLEAN 需要激活码才能使用。请向客服获取激活码，并在生成后 90 秒内完成激活。</string>
     <string name="activation_input_label">激活码</string>
     <string name="activation_submit">激活</string>
     <string name="activation_success">激活成功，正在进入…</string>
-    <string name="activation_window_hint">激活码需在生成后 10 分钟内使用，超时作废，请联系客服重新获取。</string>
-    <string name="activation_window_expired">激活码已超过激活时限，请在生成后 10 分钟内完成激活。</string>
+    <string name="activation_window_hint">激活码需在生成后 90 秒内使用，超时作废，请联系客服重新获取。</string>
+    <string name="activation_window_expired">激活码已超过激活时限，请在生成后 90 秒内完成激活。</string>
     <string name="activation_invalid">激活码无效，请检查是否输入完整</string>
     <string name="activation_expired">激活码已到期</string>
     <string name="activation_expired_on">激活码已于 %1$s 到期</string>
