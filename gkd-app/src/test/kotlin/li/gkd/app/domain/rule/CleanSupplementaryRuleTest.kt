@@ -1,8 +1,10 @@
 package li.gkd.app.domain.rule
 
 import li.gkd.app.data.RawSubscription
+import li.gkd.app.data.subscription.SubscriptionState
 import li.gkd.selector.Selector
 import li.gkd.selector.SelectorCompileResult
+import li.gkd.db.SubsItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -97,6 +99,31 @@ class CleanSupplementaryRuleTest {
                 systemAppIds = setOf("android"),
             ),
         )
+    }
+
+    /**
+     * 「规则真的会被装载」的证据：`buildUsedSubsEntries` 是规则解析的入口，
+     * 它要求 `item.enable && subscription.hasRule`。本地订阅只有同时满足这两条
+     * 才会进入后续的规则构建 —— 任一条不满足，规则写了也等于没写，且没有任何报错。
+     *
+     * 这条同时锁住 `SubsItem.enable` 默认 false 的坑：上游源当初就因此「装上却零规则」。
+     */
+    @Test
+    fun enabledLocalSubscriptionWithRulesIsPickedUp() {
+        val subs = RawSubscription.parse(readAsset("clean-rules.json5"))
+        assertEquals(-2L, subs.id)
+        assertTrue(
+            "只有全局组也算有规则（hasRule 覆盖 globalGroups）",
+            subs.hasRule,
+        )
+
+        val enabled = SubsItem(id = -2L, order = 0, enable = true)
+        val picked = SubscriptionState.buildUsedSubsEntries(listOf(enabled), mapOf(-2L to subs))
+        assertEquals("启用且有规则的本地订阅必须被装载", 1, picked.size)
+
+        val disabled = SubsItem(id = -2L, order = 0, enable = false)
+        val notPicked = SubscriptionState.buildUsedSubsEntries(listOf(disabled), mapOf(-2L to subs))
+        assertEquals("未启用则必须被排除（默认值就是 false）", 0, notPicked.size)
     }
 
     /**
