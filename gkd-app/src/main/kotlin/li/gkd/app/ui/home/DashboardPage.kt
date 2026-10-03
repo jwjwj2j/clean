@@ -108,6 +108,8 @@ fun useDashboardPage(): ScaffoldExt {
     val topAppId by topAppIdFlow.collectAsStateWithLifecycle()
     val appInfoMap by AppInfoRepository.appInfoMapFlow.collectAsStateWithLifecycle()
     val latestRecord by SubscriptionState.latestRecordFlow.collectAsStateWithLifecycle()
+    // CLEAN：「最近触发」的文案（应用名/规则名），来自最近一条触发记录
+    val recentTriggerDesc by SubscriptionState.latestRecordDescFlow.collectAsStateWithLifecycle()
     val pageScrollState = rememberColumnScrollState()
     val scrollBehavior = pageScrollState.scrollBehavior
     val scrollState = pageScrollState.scrollState
@@ -209,14 +211,15 @@ fun useDashboardPage(): ScaffoldExt {
             Spacer(Modifier.height(cardGap))
 
             RecentTriggerCard(
-                // 前台应用名拿不到时退回包名（与 StatusService 的既有处理一致），不编造规则名。
-                appName = appInfoMap[topAppId]?.name ?: topAppId,
-                onOpen = if (topAppId.isEmpty()) {
-                    null
-                } else {
-                    {
-                        mainVm.navigatePage(AppConfigRoute(appId = topAppId))
-                    }
+                // CLEAN 修复：原先接的是 topAppIdFlow，而它只在
+                // enableBlockA11yAppList（默认 false）或无障碍范围白名单非空时才更新，
+                // 是「局部禁用无障碍」功能的遗留数据源 —— 默认配置下恒为初始值 ""，
+                // 因此这张卡片永远显示「暂无数据」。
+                // 改用 latestRecordDescFlow：由最近一条触发记录（ActionLog）解析出
+                // 「应用名/规则名」，正是设计稿 §1.4 要的内容。
+                appName = recentTriggerDesc.orEmpty(),
+                onOpen = latestRecord?.let { record ->
+                    { mainVm.navigatePage(AppConfigRoute(appId = record.appId)) }
                 },
             )
 
