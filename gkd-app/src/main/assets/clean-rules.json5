@@ -1,0 +1,10 @@
+{
+  id: -2,
+  name: 'CLEAN 补充规则',
+  version: 1,
+  author: 'CLEAN',
+  supportUri: '',
+  updateUrl: '',
+  globalGroups: [],
+  apps: [],
+}

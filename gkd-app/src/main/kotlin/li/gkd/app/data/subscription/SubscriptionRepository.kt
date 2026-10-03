@@ -48,6 +48,26 @@ import li.songe.json5.decodeFromJson5String
  */
 private const val BUNDLED_RULES_ASSET = "gkd-fallback.json5"
 
+/**
+ * CLEAN **自有规则源**资源（assets/[CLEAN_RULES_ASSET]）。
+ *
+ * **为什么需要它**：上游订阅自称「已停止维护」并冻结在 version 186，CLEAN 无法增加、
+ * 也无法调整任何规则（`matchTime` / `actionMaximum` 等参数写在规则正文里，而本地配置层
+ * `RuleSetting` 只能覆盖「启用/禁用」这一个布尔量）。要让拦截能力真正变强，就必须拥有
+ * 自己的规则源。
+ *
+ * **机制**：项目本就支持「本地订阅」——[LOCAL_SUBS_ID] 对应的订阅
+ * - 不会被单源强制清除（`purgeForeignSources` 显式保留 `isLocal`）；
+ * - 内容存在 `subsFolder/<id>.json`，可读写；
+ * - 与上游订阅同时启用，规则会合并生效。
+ *
+ * 因此把 CLEAN 自己写的规则随包发在这里，启动时物化到本地订阅即可 —— 与网络、与上游
+ * CDN 都无关，且发新版本 App 就能更新规则。
+ *
+ * 注意坑：`SubsItem.enable` 默认 false，物化后必须显式启用，否则「装上却零规则」。
+ */
+private const val CLEAN_RULES_ASSET = "clean-rules.json5"
+
 /** 读取随包兜底规则正文；资源缺失或读取失败返回 null（不抛异常）。 */
 private fun readBundledRulesText(): String? = runCatching {
     app.assets.open(BUNDLED_RULES_ASSET).use { it.readBytes().decodeToString() }
@@ -60,6 +80,20 @@ private fun parseBundledRules(): RawSubscription? = runCatching {
     readBundledRulesText()?.let { RawSubscription.parse(it) }
 }.onFailure {
     LogUtils.d("随包兜底规则解析失败", it.message)
+}.getOrNull()
+
+/** 读取 CLEAN 自有规则；资源缺失或读取失败返回 null。 */
+private fun readCleanRulesText(): String? = runCatching {
+    app.assets.open(CLEAN_RULES_ASSET).use { it.readBytes().decodeToString() }
+}.onFailure {
+    LogUtils.d("CLEAN 自有规则读取失败", it.message)
+}.getOrNull()
+
+/** 解析 CLEAN 自有规则；任何失败都返回 null。 */
+private fun parseCleanRules(): RawSubscription? = runCatching {
+    readCleanRulesText()?.let { RawSubscription.parse(it) }
+}.onFailure {
+    LogUtils.d("CLEAN 自有规则解析失败", it.message)
 }.getOrNull()
 
 object SubscriptionRepository {
@@ -253,24 +287,57 @@ object SubscriptionRepository {
                         previous = SubscriptionSnapshot(),
                     )
                 }
-                if (items.any { it.id == LOCAL_SUBS_ID }) return@withStateLock
-                val item = SubsItem(
-                    id = LOCAL_SUBS_ID,
-                    order = items.minByOrNull { it.order }?.order ?: 0,
-                )
-                if (SubscriptionFileStore.readBytes(LOCAL_SUBS_ID) != null) {
-                    Db.subsItemDao.upsert(item)
-                    refreshRawSubscriptions(listOf(item))
-                } else {
-                    saveLocked(
-                        subscription = RawSubscription(
-                            id = LOCAL_SUBS_ID,
-                            name = UiStrings.subscription_local,
-                            version = 0,
-                        ),
-                        newItem = item,
-                        insertItem = true,
+                // CLEAN：本地订阅承载「CLEAN 自有规则源」。先判断是否需要写入随包规则：
+                // 无文件、或随包版本更高时都要写；版本不高于现有则保持不动，
+                // 与内置源的升级口径一致，避免用旧规则覆盖用户已拿到的新规则。
+                val bundled = parseCleanRules()
+                val existingItem = items.firstOrNull { it.id == LOCAL_SUBS_ID }
+                val installedVersion = SubscriptionFileStore.readBytes(LOCAL_SUBS_ID)
+                    ?.let { bytes ->
+                        runCatching { RawSubscription.parse(bytes.decodeToString()).version }.getOrNull()
+                    }
+                val needsMaterialize = bundled != null &&
+                        (installedVersion == null || bundled.version > installedVersion)
+
+                if (existingItem == null) {
+                    val item = SubsItem(
+                        id = LOCAL_SUBS_ID,
+                        order = items.minByOrNull { it.order }?.order ?: 0,
+                        // CLEAN：必须显式启用 —— SubsItem.enable 默认 false，
+                        // 否则自有规则「装上了却零规则生效」。
+                        enable = bundled != null,
                     )
+                    if (bundled != null && needsMaterialize) {
+                        SubscriptionFileStore.write(bundled)
+                    }
+                    if (SubscriptionFileStore.readBytes(LOCAL_SUBS_ID) != null) {
+                        Db.subsItemDao.upsert(item)
+                        refreshRawSubscriptions(listOf(item))
+                    } else {
+                        saveLocked(
+                            subscription = RawSubscription(
+                                id = LOCAL_SUBS_ID,
+                                name = UiStrings.subscription_local,
+                                version = 0,
+                            ),
+                            newItem = item,
+                            insertItem = true,
+                        )
+                    }
+                } else {
+                    // 条目已存在（含从旧版本升级上来的「本地订阅为空且禁用」状态）：
+                    // 补写随包规则，并确保启用。
+                    if (bundled != null && needsMaterialize) {
+                        LogUtils.d("写入 CLEAN 自有规则", "version=${bundled.version}")
+                        SubscriptionFileStore.write(bundled)
+                        refreshRawSubscriptions(
+                            items = Db.subsItemDao.queryAll(),
+                            previous = SubscriptionSnapshot(),
+                        )
+                    }
+                    if (bundled != null && !existingItem.enable) {
+                        Db.subsItemDao.updateEnable(LOCAL_SUBS_ID, true)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
