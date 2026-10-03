@@ -1,6 +1,6 @@
-# gkd-app 模块架构
+# clean-app 模块架构
 
-`gkd-app` 采用“功能纵向切片 + 明确的数据和平台边界”。依赖方向如下：
+`clean-app` 采用“功能纵向切片 + 明确的数据和平台边界”。依赖方向如下：
 
 ```text
 App / MainActivity

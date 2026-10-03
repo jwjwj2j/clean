@@ -55,7 +55,7 @@ flowchart TD
 
 ### Binder 契约
 
-`gkd-app/src/main/aidl/li/gkd/app/priv/IUserService.aidl` 全文只有两个方法，二者必须逐字对应：
+`clean-app/src/main/aidl/li/gkd/app/priv/IUserService.aidl` 全文只有两个方法，二者必须逐字对应：
 
 ```aidl
 interface IUserService {
@@ -71,7 +71,7 @@ interface IUserService {
 
 ### 实现
 
-`gkd-app/src/main/kotlin/li/gkd/app/priv/UserService.kt` 是 `IUserService.Stub()` 的实现，标注 `@Keep` 以便混淆后仍能被 priv-kit 按类名反射加载：
+`clean-app/src/main/kotlin/li/gkd/app/priv/UserService.kt` 是 `IUserService.Stub()` 的实现，标注 `@Keep` 以便混淆后仍能被 priv-kit 按类名反射加载：
 
 | 声明 | 说明 |
 | --- | --- |
@@ -134,7 +134,7 @@ sequenceDiagram
 >
 > `VirtualMachineError` 和 `ThreadDeath` 等无法可靠恢复的终止错误可以原样抛出；不要把它们伪装成普通业务失败。
 
-`gkd-app/src/main/kotlin/li/gkd/app/priv/UserService.kt` 第 13–26 行是全仓库唯一一处「嵌入式 UserService 方法最外层」的异常边界，结构是**三段式 catch**：
+`clean-app/src/main/kotlin/li/gkd/app/priv/UserService.kt` 第 13–26 行是全仓库唯一一处「嵌入式 UserService 方法最外层」的异常边界，结构是**三段式 catch**：
 
 | 顺序 | 捕获类型 | 处理 |
 | --- | --- | --- |
@@ -208,14 +208,14 @@ sequenceDiagram
 
 两条机制解决两个不同问题，缺一不可：
 
-1. **编译期与打包期：`remap` 插件 + 影子模块。** `gkd-hidden-api` 里的 `android.*` / `com.android.internal.*` 类**不是** framework 类，而是普通 Java 源码写的「影子声明」，用 `@RemapType(真实类型.class)` 标注真实目标（如 `@RemapType(UiAutomation.class) public class UiAutomationHidden`）。`gkd-app/build.gradle.kts` 用 `remapApi(project(":gkd-hidden-api"))` 引入，使 `gkd-app` 能编译出对隐藏成员的引用，再由 `remap` 编译期插件把引用重映射到真实类型。影子模块自身依赖为 `compileOnly(libs.androidx.annotation)`、`compileOnly(libs.remap.annotation)`、`annotationProcessor(libs.remap.processor)`，不产生运行期依赖。
+1. **编译期与打包期：`remap` 插件 + 影子模块。** `clean-hidden-api` 里的 `android.*` / `com.android.internal.*` 类**不是** framework 类，而是普通 Java 源码写的「影子声明」，用 `@RemapType(真实类型.class)` 标注真实目标（如 `@RemapType(UiAutomation.class) public class UiAutomationHidden`）。`clean-app/build.gradle.kts` 用 `remapApi(project(":clean-hidden-api"))` 引入，使 `clean-app` 能编译出对隐藏成员的引用，再由 `remap` 编译期插件把引用重映射到真实类型。影子模块自身依赖为 `compileOnly(libs.androidx.annotation)`、`compileOnly(libs.remap.annotation)`、`annotationProcessor(libs.remap.processor)`，不产生运行期依赖。
 2. **运行期：`AndroidHiddenApiBypass`。** Android 9(P) 起框架对非 SDK 接口施加黑/灰名单限制；`App.attachBaseContext` 执行 `if (AndroidTarget.P) HiddenApiBypass.addHiddenApiExemptions("L")`，用前缀 `L` 豁免全部类，使 remap 后的真实隐藏调用在运行期不被拦截。构建侧配合 `dependenciesInfo { includeInApk = false; includeInBundle = false }`。
 
-### `gkd-hidden-api` 模块的隐藏 API 一览
+### `clean-hidden-api` 模块的隐藏 API 一览
 
-`gkd-hidden-api/build.gradle.kts` 只有 `alias(libs.plugins.android.library)`、`namespace = "hidden.api"` 与上述三条依赖；`gkd-hidden-api/src/main/AndroidManifest.xml` 是空的 `<manifest />`。
+`clean-hidden-api/build.gradle.kts` 只有 `alias(libs.plugins.android.library)`、`namespace = "hidden.api"` 与上述三条依赖；`clean-hidden-api/src/main/AndroidManifest.xml` 是空的 `<manifest />`。
 
-| 影子声明（`gkd-hidden-api/src/main/java/`） | 暴露的成员 | 消费位置（`gkd-app`） |
+| 影子声明（`clean-hidden-api/src/main/java/`） | 暴露的成员 | 消费位置（`clean-app`） |
 | --- | --- | --- |
 | `android/accessibilityservice/AccessibilityServiceInfoHidden.java` | 构造 `(ResolveInfo, Context)`、`setCapabilities(int)`、`setAccessibilityTool(boolean)`、`FLAG_FORCE_DIRECT_BOOT_AWARE` | `priv/UiAutomationServiceInfo.kt` |
 | `android/accessibilityservice/IAccessibilityServiceClient.java` | 空接口（仅作类型名） | `priv/PrivilegeContext.kt`、`priv/ProxyUiAutomationConnection.kt` |
@@ -309,7 +309,7 @@ sequenceDiagram
     H-->>St: 经 stdout / stderr / ResultReceiver 回流启动日志
 ```
 
-`gkd-app/src/main/aidl/li/gkd/app/priv/shizuku/IPrivilegeShizukuStartService.aidl`：
+`clean-app/src/main/aidl/li/gkd/app/priv/shizuku/IPrivilegeShizukuStartService.aidl`：
 
 ```aidl
 interface IPrivilegeShizukuStartService {
@@ -339,8 +339,8 @@ interface IPrivilegeShizukuStartService {
 | 条目 | 声明 |
 | --- | --- |
 | `gradle/libs.versions.toml` | `shizuku = "13.1.5"`；`rikka-shizuku-api = "dev.rikka.shizuku:api"`；`rikka-shizuku-provider = "dev.rikka.shizuku:provider"` |
-| `gkd-app/build.gradle.kts` | `implementation(libs.rikka.shizuku.api)`、`implementation(libs.rikka.shizuku.provider)` |
-| `gkd-app/src/main/AndroidManifest.xml` | `<provider android:name="rikka.shizuku.ShizukuProvider" android:authorities="${applicationId}.shizuku" android:exported="true" android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />` |
+| `clean-app/build.gradle.kts` | `implementation(libs.rikka.shizuku.api)`、`implementation(libs.rikka.shizuku.provider)` |
+| `clean-app/src/main/AndroidManifest.xml` | `<provider android:name="rikka.shizuku.ShizukuProvider" android:authorities="${applicationId}.shizuku" android:exported="true" android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />` |
 | `priv/PrivilegeUiIntegration.kt` | `gkdPrivilegeUiConfig = PrivilegeUiConfig(externalStartProviders = listOf(GkdShizukuExternalStartProvider))`；`App.initializeRuntimeComponents()` 调 `PrivilegeUi.startSilently(gkdPrivilegeUiConfig)` |
 
 两个 Shizuku 类分别运行在**主进程**与 **Shizuku 拉起的 UserService 进程**，靠上面的 AIDL 通信；`rikka.shizuku:api` 提供 `Shizuku.bindUserService` / `unbindUserService` / `UserServiceArgs` / `OnRequestPermissionResultListener`，`rikka.shizuku:provider` 提供被 Shizuku Manager 发现所需的 `ShizukuProvider`。
@@ -386,10 +386,10 @@ stateDiagram-v2
 
 | 组件 | 职责 |
 | --- | --- |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/PrivilegeServicePage.kt` | 路由 `PrivilegeServiceRoute`；`GkdPrivilegeUiViewModel` 继承 priv-kit 的 `PrivilegeUiViewModel(application, gkdPrivilegeUiConfig)`；`PrivilegeScaffold` + `GkTopAppBar` 提供返回与说明；`PrivilegeServiceInfoDialog` 解释特权服务来源并链接 priv-kit 仓库 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/GkAuthCard.kt` | 通用授权卡片：标题 + 可选副标题 + 右侧 `OutlinedButton`（`UiStrings.action_authorize`），点击经 `throttle` 节流 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/GkAuthButtonGroup.kt` | `FlowRow` 内的多个 `TextButton`（`List<Pair<String, () -> Unit>>`），同样 `throttle` 节流 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/GkQueryPkgAuthCard.kt` | 「查询应用列表」卡片：警告图标 + 说明 + 按钮，点击走 `mainVm.permissionRequests.ensurePermissions(PermissionStates.queryPackages)`，按钮 `enabled` 绑定 `AppInfoRepository.updating` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/PrivilegeServicePage.kt` | 路由 `PrivilegeServiceRoute`；`GkdPrivilegeUiViewModel` 继承 priv-kit 的 `PrivilegeUiViewModel(application, gkdPrivilegeUiConfig)`；`PrivilegeScaffold` + `GkTopAppBar` 提供返回与说明；`PrivilegeServiceInfoDialog` 解释特权服务来源并链接 priv-kit 仓库 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/GkAuthCard.kt` | 通用授权卡片：标题 + 可选副标题 + 右侧 `OutlinedButton`（`UiStrings.action_authorize`），点击经 `throttle` 节流 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/GkAuthButtonGroup.kt` | `FlowRow` 内的多个 `TextButton`（`List<Pair<String, () -> Unit>>`），同样 `throttle` 节流 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/GkQueryPkgAuthCard.kt` | 「查询应用列表」卡片：警告图标 + 说明 + 按钮，点击走 `mainVm.permissionRequests.ensurePermissions(PermissionStates.queryPackages)`，按钮 `enabled` 绑定 `AppInfoRepository.updating` |
 
 ---
 
@@ -425,12 +425,12 @@ stateDiagram-v2
 | --- | --- |
 | `priv-kit-ui`（`priv-kit = "0.16.1"`，`io.github.priv-kit:priv-ui`） | 提供 `PrivilegeUi`、`PrivilegeUiConfig`、`PrivilegeUiViewModel`、`PrivilegeScaffold`、`PrivilegeUiStreamingExternalStartProvider`、`PrivilegeUiExternalStartSnapshot` 与特权服务状态展示；GKD 只提供 `GkdShizukuExternalStartProvider` 与页面壳，真正的拉起/守护逻辑在 priv-kit 内部，属本仓库之外的可信边界 |
 | `lsposed-hiddenapibypass`（`6.1`） | `App.attachBaseContext` 中 `HiddenApiBypass.addHiddenApiExemptions("L")` 一次性豁免**全部**类而非最小集合，是本层最宽的权限面：后续任何反射调用的非 SDK 接口都不再被框架拦截 |
-| `remap`（`0.1.5`，插件 + `remap-annotation` / `remap-processor`） | 影子声明重映射发生在编译期，`gkd-hidden-api` 无运行期依赖；风险集中在「影子签名与真实签名不一致」，这正是 `HiddenApiDetect` / `detectHiddenMethod` 存在的原因 |
+| `remap`（`0.1.5`，插件 + `remap-annotation` / `remap-processor`） | 影子声明重映射发生在编译期，`clean-hidden-api` 无运行期依赖；风险集中在「影子签名与真实签名不一致」，这正是 `HiddenApiDetect` / `detectHiddenMethod` 存在的原因 |
 | `codeorigin`（`0.2.1`）与打包配置 | 仅 `compileOnly(libs.codeorigin)`，提供 `@CallSite` 等调用点信息（`PermissionState.checkOrToast(@CallSite loc)`），不进包；`packaging.jniLibs.useLegacyPackaging = true` 是 priv-kit 原生库要求，并配合 `dependenciesInfo { includeInApk = false; includeInBundle = false }` |
 
 ### 清单声明
 
-`gkd-app/src/main/AndroidManifest.xml`：
+`clean-app/src/main/AndroidManifest.xml`：
 
 | 声明 | 关联能力 |
 | --- | --- |
@@ -442,12 +442,12 @@ stateDiagram-v2
 | `.service.ExposeService`（`exported="true"`，`PROPERTY_SPECIAL_USE_FGS_SUBTYPE` 声明为第三方调用快照） | 对外暴露的接口面，本层最需要关注的外部输入来源 |
 | `tools:ignore="ProtectedPermissions,PackageVisibilityPolicy,QueryAllPackagesPermission,ForegroundServicesPolicy"` | 明确接受上述受保护权限与包可见性策略的 lint 抑制 |
 
-`gkd-app/src/gkd/AndroidManifest.xml`（仅 `gkd` 渠道）追加 `android.permission.REQUEST_INSTALL_PACKAGES`（`tools:ignore="RequestInstallPackagesPolicy"`），即 `play` 渠道不含「请求安装包」能力，权限面按渠道分流。
+`clean-app/src/gkd/AndroidManifest.xml`（仅 `gkd` 渠道）追加 `android.permission.REQUEST_INSTALL_PACKAGES`（`tools:ignore="RequestInstallPackagesPolicy"`），即 `play` 渠道不含「请求安装包」能力，权限面按渠道分流。
 
 ### 主要风险点
 
 1. **隐藏 API 的跨版本脆弱性**：`Compat*` 与 `HiddenApiDetect` 已覆盖 O 到 36+ 的已知差异，但框架内部签名随时可能再变；`detectHiddenMethod` 探测失败抛 `NoSuchMethodException`，必须由调用方（或特权进程的末端 `catch`）兜住。
-2. **文本解析的稳定性**：`CompatAccessibilityManager.isUiAutomationRunning()` 与 `parseFocusedWindowSecure()` 都依赖 `dumpsys` 文本格式，已用多条正则兼容新旧格式（`gkd-app/src/test/kotlin/li/gkd/app/priv/CompatAccessibilityManagerTest.kt`、`CompatWindowManagerTest.kt` 覆盖旧格式与截断输入），但解析失败只退化为「未知」，调用方必须按可空处理。
+2. **文本解析的稳定性**：`CompatAccessibilityManager.isUiAutomationRunning()` 与 `parseFocusedWindowSecure()` 都依赖 `dumpsys` 文本格式，已用多条正则兼容新旧格式（`clean-app/src/test/kotlin/li/gkd/app/priv/CompatAccessibilityManagerTest.kt`、`CompatWindowManagerTest.kt` 覆盖旧格式与截断输入），但解析失败只退化为「未知」，调用方必须按可空处理。
 3. **反射构造 `ApplicationPackageManager`**：`CompatPackageManager` 依赖 `android.app.ContextImpl` 私有类与私有构造器签名，是最易随版本失效的点之一。
 4. **特权进程崩溃的系统级影响**：`UserService` 以 shell/root 身份运行，因此 `AGENTS.md` 的异常边界是硬规则——`VirtualMachineError` / `ThreadDeath` 之外的任何 `Throwable`（尤其 `LinkageError`）都必须在 `UserService.takeScreenshot` 最外层被转成 `ServiceSpecificException` 回传。
 5. **自动授权（`grantSelf`）**：`PrivilegeContext.grantSelf()` 改写自身 AppOps 模式并补齐运行时权限，属于「用特权换易用性」，仅在特权上下文可用时生效且受 `Privilege.isPermissionRestricted()` 短路保护。
@@ -458,43 +458,43 @@ stateDiagram-v2
 
 | 仓库相对路径 | 职责 |
 | --- | --- |
-| `gkd-app/src/main/aidl/li/gkd/app/priv/IUserService.aidl` | UserService 的 Binder 契约：`takeScreenshot(Rect, int)`、`destroy()` |
-| `gkd-app/src/main/aidl/li/gkd/app/priv/shizuku/IPrivilegeShizukuStartService.aidl` | Shizuku 启动服务契约：`start(String, PFD, PFD, ResultReceiver)`、`destroy()` |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/UserService.kt` | 嵌入式特权服务实现，承载末端 `catch (e: Throwable)` 异常边界 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/PrivilegeApi.kt` | `privilegeContextFlow`、`initPrivilege()`、上下文建立/销毁与副作用 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/PrivilegeContext.kt` | 主进程侧特权门面：能力集合、`grantSelf()`、`create()` / `destroy()` |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/PrivilegeOwnerLifecycle.kt` | 宿主死亡后特权进程去留与 App 重启准备 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/PrivilegeUiIntegration.kt` | `privilegeServiceStatusFlow`、`gkdPrivilegeUiConfig` |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/AutomationService.kt` | UiAutomation 生命周期宿主，`A11yCommonImpl` 的 Automation 模式实现 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/ProxyUiAutomationConnection.kt` | `IUiAutomationConnection.Stub()` 代理、UID 校验与旋转状态恢复 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/UiAutomationServiceInfo.kt` | `createUiAutomationServiceInfo()` 构造 UiAutomation 服务信息 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/BinderExt.kt` / `ShellCommandResult.kt` | `IBinder.dump` / `IBinder.shellCommand` 管道封装与结果模型 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/HiddenApiDetect.kt` | `detectHiddenClass` / `detectHiddenMethod` / `detectHiddenField` |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/HiddenApiCast.kt` | 隐藏影子类型与公开类型的零开销互转 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatAccessibilityManager.kt` | `registerUiTestAutomationService` 重载选择、UiAutomation 占用探测与 `containsUiAutomation` |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatActivityManager.kt` | `getTasks` / `startService` 跨版本重载选择 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatAppOpsService.kt` | `IAppOpsService` 绑定 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatInputManager.kt` | shell 注入路径与 `LegacyInputInjector` 旧版注入 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatPackageManager.kt` | `IPackageManager` 绑定与反射构造 `ApplicationPackageManager` |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatScreenshot.kt` | 五代截图 API 的统一入口与实现 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatTaskStackListener.kt` | 任务栈回调 → `updateTopActivity`，含 `onTransact` 兜底 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatUserManager.kt` | `UserManagerHidden.getUsers(excludeDying)` 映射为 `li.gkd.app.data.UserInfo` |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/CompatWindowManager.kt` | 旋转冻结/解冻签名探测、`parseFocusedWindowSecure` |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/shizuku/GkdShizukuExternalStartProvider.kt` | priv-kit 外部启动提供者（快照、授权、启动） |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/shizuku/PrivilegeShizukuExternalStarter.kt` | `Shizuku.bindUserService` 绑定、超时与解绑 |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/shizuku/PrivilegeShizukuStartService.kt` | Shizuku 拉起进程内的服务实现，委托 `PrivilegeExternalStartupHost` |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/RpcError.kt` | 可序列化 RPC 异常（HTTP 序列化边界，非 Binder 通道） |
-| `gkd-app/src/main/kotlin/li/gkd/app/permission/PermissionState.kt` | `PermissionState` / `PermissionResolution` / `PermissionStates` |
-| `gkd-app/src/main/kotlin/li/gkd/app/permission/PermissionRecheckPolicy.kt` | `Immediate` / `Settings` 重检策略与 `awaitGranted` |
-| `gkd-app/src/main/kotlin/li/gkd/app/permission/PermissionRequestCoordinator.kt` | 提示条与对话框的可见性仲裁、`awaitResolution` |
-| `gkd-app/src/main/kotlin/li/gkd/app/permission/PermissionRequestHost.kt` | Activity 生命周期绑定与 `XXPermissions` 调用 |
-| `gkd-app/src/main/kotlin/li/gkd/app/permission/PermissionHostCommands.kt` | `Command` 定义与 `launched` / `leftHost` 状态机 |
-| `gkd-app/src/main/kotlin/li/gkd/app/permission/PermissionRequest.kt` | `PermissionRequests.ensurePermissions` 门面与 `Host` |
-| `gkd-app/src/main/kotlin/li/gkd/app/permission/PermissionRequestContent.kt` | 提示条 / 对话框的 Compose 渲染 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/PrivilegeServicePage.kt` | 特权服务页面与 `GkdPrivilegeUiViewModel` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/GkAuthCard.kt` / `GkAuthButtonGroup.kt` / `GkQueryPkgAuthCard.kt` | 授权卡片、授权按钮组、查询包列表授权卡片 |
-| `gkd-hidden-api/build.gradle.kts` / `src/main/AndroidManifest.xml` | 影子模块构建配置（`namespace = "hidden.api"`）与空清单 |
-| `gkd-hidden-api/src/main/java/**` | 全部隐藏 API 影子声明（见上文一览表） |
+| `clean-app/src/main/aidl/li/gkd/app/priv/IUserService.aidl` | UserService 的 Binder 契约：`takeScreenshot(Rect, int)`、`destroy()` |
+| `clean-app/src/main/aidl/li/gkd/app/priv/shizuku/IPrivilegeShizukuStartService.aidl` | Shizuku 启动服务契约：`start(String, PFD, PFD, ResultReceiver)`、`destroy()` |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/UserService.kt` | 嵌入式特权服务实现，承载末端 `catch (e: Throwable)` 异常边界 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/PrivilegeApi.kt` | `privilegeContextFlow`、`initPrivilege()`、上下文建立/销毁与副作用 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/PrivilegeContext.kt` | 主进程侧特权门面：能力集合、`grantSelf()`、`create()` / `destroy()` |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/PrivilegeOwnerLifecycle.kt` | 宿主死亡后特权进程去留与 App 重启准备 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/PrivilegeUiIntegration.kt` | `privilegeServiceStatusFlow`、`gkdPrivilegeUiConfig` |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/AutomationService.kt` | UiAutomation 生命周期宿主，`A11yCommonImpl` 的 Automation 模式实现 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/ProxyUiAutomationConnection.kt` | `IUiAutomationConnection.Stub()` 代理、UID 校验与旋转状态恢复 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/UiAutomationServiceInfo.kt` | `createUiAutomationServiceInfo()` 构造 UiAutomation 服务信息 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/BinderExt.kt` / `ShellCommandResult.kt` | `IBinder.dump` / `IBinder.shellCommand` 管道封装与结果模型 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/HiddenApiDetect.kt` | `detectHiddenClass` / `detectHiddenMethod` / `detectHiddenField` |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/HiddenApiCast.kt` | 隐藏影子类型与公开类型的零开销互转 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatAccessibilityManager.kt` | `registerUiTestAutomationService` 重载选择、UiAutomation 占用探测与 `containsUiAutomation` |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatActivityManager.kt` | `getTasks` / `startService` 跨版本重载选择 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatAppOpsService.kt` | `IAppOpsService` 绑定 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatInputManager.kt` | shell 注入路径与 `LegacyInputInjector` 旧版注入 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatPackageManager.kt` | `IPackageManager` 绑定与反射构造 `ApplicationPackageManager` |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatScreenshot.kt` | 五代截图 API 的统一入口与实现 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatTaskStackListener.kt` | 任务栈回调 → `updateTopActivity`，含 `onTransact` 兜底 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatUserManager.kt` | `UserManagerHidden.getUsers(excludeDying)` 映射为 `li.gkd.app.data.UserInfo` |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/CompatWindowManager.kt` | 旋转冻结/解冻签名探测、`parseFocusedWindowSecure` |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/shizuku/GkdShizukuExternalStartProvider.kt` | priv-kit 外部启动提供者（快照、授权、启动） |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/shizuku/PrivilegeShizukuExternalStarter.kt` | `Shizuku.bindUserService` 绑定、超时与解绑 |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/shizuku/PrivilegeShizukuStartService.kt` | Shizuku 拉起进程内的服务实现，委托 `PrivilegeExternalStartupHost` |
+| `clean-app/src/main/kotlin/li/gkd/app/data/RpcError.kt` | 可序列化 RPC 异常（HTTP 序列化边界，非 Binder 通道） |
+| `clean-app/src/main/kotlin/li/gkd/app/permission/PermissionState.kt` | `PermissionState` / `PermissionResolution` / `PermissionStates` |
+| `clean-app/src/main/kotlin/li/gkd/app/permission/PermissionRecheckPolicy.kt` | `Immediate` / `Settings` 重检策略与 `awaitGranted` |
+| `clean-app/src/main/kotlin/li/gkd/app/permission/PermissionRequestCoordinator.kt` | 提示条与对话框的可见性仲裁、`awaitResolution` |
+| `clean-app/src/main/kotlin/li/gkd/app/permission/PermissionRequestHost.kt` | Activity 生命周期绑定与 `XXPermissions` 调用 |
+| `clean-app/src/main/kotlin/li/gkd/app/permission/PermissionHostCommands.kt` | `Command` 定义与 `launched` / `leftHost` 状态机 |
+| `clean-app/src/main/kotlin/li/gkd/app/permission/PermissionRequest.kt` | `PermissionRequests.ensurePermissions` 门面与 `Host` |
+| `clean-app/src/main/kotlin/li/gkd/app/permission/PermissionRequestContent.kt` | 提示条 / 对话框的 Compose 渲染 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/PrivilegeServicePage.kt` | 特权服务页面与 `GkdPrivilegeUiViewModel` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/GkAuthCard.kt` / `GkAuthButtonGroup.kt` / `GkQueryPkgAuthCard.kt` | 授权卡片、授权按钮组、查询包列表授权卡片 |
+| `clean-hidden-api/build.gradle.kts` / `src/main/AndroidManifest.xml` | 影子模块构建配置（`namespace = "hidden.api"`）与空清单 |
+| `clean-hidden-api/src/main/java/**` | 全部隐藏 API 影子声明（见上文一览表） |
 | `.agents/skills/android-api-diff/SKILL.md` | Android API 调研的强制工具路由与命令 |
 | `AGENTS.md` | 「Android API 调研」「嵌入式 UserService 异常边界」等硬性约定 |
 | `gradle/libs.versions.toml` | `shizuku` / `priv-kit` / `remap` / `codeorigin` 版本与库坐标 |

@@ -91,7 +91,7 @@ const packageRegistry = requireString(
   manifestFile,
 );
 const packageSpecifier = `${packageName}@${packageVersion}`;
-const temporaryDir = await mkdtemp(join(tmpdir(), 'gkd-selector-dist-'));
+const temporaryDir = await mkdtemp(join(tmpdir(), 'clean-selector-dist-'));
 
 try {
   await writeFile(
@@ -115,7 +115,7 @@ try {
     );
   } catch (error) {
     throw new Error(
-      `Unable to download ${packageSpecifier}. Publish it first or run pnpm --dir gkd-selector build instead.`,
+      `Unable to download ${packageSpecifier}. Publish it first or run pnpm --dir clean-selector build instead.`,
       { cause: error },
     );
   }

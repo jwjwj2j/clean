@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "fetch-selector-dist": "node ./gkd-selector/scripts/fetch-dist.ts"
+    "fetch-selector-dist": "node ./clean-selector/scripts/fetch-dist.ts"
   },
   "dependencies": {
     "@types/node": "^26.6.2",

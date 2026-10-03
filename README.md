@@ -50,6 +50,14 @@
 - 无障碍节点数据仅在本机内存中用于规则匹配，不写入文件、不发送到任何服务器
 - 唯一会联网的行为是**更新规则订阅**
 
+## 捐赠
+
+如果 CLEAN 对你有用，可以扫码支持：
+
+<p align="center">
+<img src="docs/donation.jpg" alt="捐赠" width="260" />
+</p>
+
 ## 开源与致谢
 
 本项目基于 [GKD](https://github.com/gkd-kit/gkd) 二次开发，遵循 **GPL-3.0-only** 许可（见 [LICENSE](/LICENSE)）。
@@ -72,31 +80,31 @@
 
 | 目录 | 说明 |
 | --- | --- |
-| `gkd-app/` | Android 主应用（`applicationId = com.clean.click`） |
-| `gkd-selector/` | 选择器解析与匹配引擎 |
-| `gkd-db/` | Room 数据库 |
-| `gkd-hidden-api/` | 隐藏 API 访问 |
-| `gkd-app/src/main/assets/gkd-fallback.json5` | 随包兜底规则（上游订阅快照） |
-| `gkd-app/src/main/assets/clean-rules.json5` | CLEAN 自有补充规则（本地订阅内容） |
+| `clean-app/` | Android 主应用（`applicationId = com.clean.click`） |
+| `clean-selector/` | 选择器解析与匹配引擎 |
+| `clean-db/` | Room 数据库 |
+| `clean-hidden-api/` | 隐藏 API 访问 |
+| `clean-app/src/main/assets/gkd-fallback.json5` | 随包兜底规则（上游订阅快照） |
+| `clean-app/src/main/assets/clean-rules.json5` | CLEAN 自有补充规则（本地订阅内容） |
 
 构建：
 
 ```bash
 # debug
-./gradlew :gkd-app:assembleDebug
+./gradlew :clean-app:assembleDebug
 
 # release（需要外部提供签名，不会回退到 debug 签名）
 GKD_STORE_FILE=/path/to/keystore.jks \
 GKD_STORE_PASSWORD=... \
 GKD_KEY_ALIAS=... \
 GKD_KEY_PASSWORD=... \
-./gradlew :gkd-app:assembleRelease
+./gradlew :clean-app:assembleRelease
 ```
 
 测试：
 
 ```bash
-./gradlew :gkd-app:testDebugUnitTest :gkd-selector:jvmTest
+./gradlew :clean-app:testDebugUnitTest :clean-selector:jvmTest
 ```
 
 </details>

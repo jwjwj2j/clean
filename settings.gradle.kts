@@ -17,12 +17,12 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "gkd"
+rootProject.name = "clean"
 include(
-    ":gkd-app",
-    ":gkd-db",
-    ":gkd-hidden-api",
-    ":gkd-selector",
+    ":clean-app",
+    ":clean-db",
+    ":clean-hidden-api",
+    ":clean-selector",
 )
 
 dependencyResolutionManagement {

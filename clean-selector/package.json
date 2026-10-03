@@ -3,12 +3,12 @@
   "version": "0.6.0",
   "description": "GKD selector parser and matcher",
   "type": "module",
-  "main": "./dist/gkd-selector.mjs",
-  "types": "./dist/gkd-selector.d.mts",
+  "main": "./dist/clean-selector.mjs",
+  "types": "./dist/clean-selector.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/gkd-selector.d.mts",
-      "import": "./dist/gkd-selector.mjs"
+      "types": "./dist/clean-selector.d.mts",
+      "import": "./dist/clean-selector.mjs"
     }
   },
   "files": [
@@ -27,7 +27,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/gkd-kit/gkd.git",
-    "directory": "gkd-selector"
+    "directory": "clean-selector"
   },
   "publishConfig": {
     "access": "public",

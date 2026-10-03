@@ -1,24 +1,24 @@
-# GKD 选择器引擎（gkd-selector）
+# GKD 选择器引擎（clean-selector）
 
-`gkd-selector` 是 GKD 的**高级选择器**实现：一份 Kotlin Multiplatform 源码同时作为 Android 侧 Gradle 模块参与设备上的规则匹配，并作为 npm 包 `@gkd-kit/selector` 供仓库外的 JavaScript/Web 消费者使用。它提供三条边界互不重叠的入口——`compile`（语义编译，只关心能否匹配）、`parse`（语义解析 + 源码位置 + 高亮 token）、`tokenize`（容错词法扫描）；三者共享同一 AST 与同一匹配引擎。本文以当前源码为准，描述产物形态、公开 API、真实语法、匹配与类型校验语义、构建发布链路与测试契约。
+`clean-selector` 是 GKD 的**高级选择器**实现：一份 Kotlin Multiplatform 源码同时作为 Android 侧 Gradle 模块参与设备上的规则匹配，并作为 npm 包 `@gkd-kit/selector` 供仓库外的 JavaScript/Web 消费者使用。它提供三条边界互不重叠的入口——`compile`（语义编译，只关心能否匹配）、`parse`（语义解析 + 源码位置 + 高亮 token）、`tokenize`（容错词法扫描）；三者共享同一 AST 与同一匹配引擎。本文以当前源码为准，描述产物形态、公开 API、真实语法、匹配与类型校验语义、构建发布链路与测试契约。
 
 ## 模块定位与产物
 
-**构建目标。** `gkd-selector/build.gradle.kts` 的 `kotlin {}` 只声明两个 target；**没有 `wasmJs` target**，代码里的 "wasm" 只指 JS 依赖 `regex-wasm`（一个编译为 WebAssembly 的正则引擎），与 Kotlin 的 wasm 平台无关。
+**构建目标。** `clean-selector/build.gradle.kts` 的 `kotlin {}` 只声明两个 target；**没有 `wasmJs` target**，代码里的 "wasm" 只指 JS 依赖 `regex-wasm`（一个编译为 WebAssembly 的正则引擎），与 Kotlin 的 wasm 平台无关。
 
 | target | 关键配置 | 产物 |
 | --- | --- | --- |
-| `jvm` | 默认 | JVM 库，随 `gkd-app` 打进 APK |
+| `jvm` | 默认 | JVM 库，随 `clean-app` 打进 APK |
 | `js` | `outputModuleName = project.name`、`target = es2015`、`binaries.executable()`、`useEsModules()`、`generateTypeScriptDefinitions()`、`nodejs()` | Kotlin/JS 输出 + 自动生成的 TypeScript 声明 |
 
-插件开启了 `explicitApi()`，并对全部源集 `optIn` 了 `ExperimentalJsExport`、`ExperimentalJsStatic`、`ExperimentalJsCollectionsApi`。`commonMain` 只依赖 `kotlin.stdlib`；`jsMain` 的 npm 依赖由 `buildSrc` 的 `readNpmDependencies()` 从 `gkd-selector/package.json` 的 `dependencies` 注入（当前即 `regex-wasm`）。
+插件开启了 `explicitApi()`，并对全部源集 `optIn` 了 `ExperimentalJsExport`、`ExperimentalJsStatic`、`ExperimentalJsCollectionsApi`。`commonMain` 只依赖 `kotlin.stdlib`；`jsMain` 的 npm 依赖由 `buildSrc` 的 `readNpmDependencies()` 从 `clean-selector/package.json` 的 `dependencies` 注入（当前即 `regex-wasm`）。
 
-**npm 包（`gkd-selector/package.json`）。**
+**npm 包（`clean-selector/package.json`）。**
 
 | 字段 | 值 |
 | --- | --- |
 | `name` / `version` | `@gkd-kit/selector` / `0.6.0` |
-| `main` / `types` | `./dist/gkd-selector.mjs` / `./dist/gkd-selector.d.mts`（纯 ESM，`type: module`） |
+| `main` / `types` | `./dist/clean-selector.mjs` / `./dist/clean-selector.d.mts`（纯 ESM，`type: module`） |
 | `files` | `dist`、`src/commonMain`、`src/jsMain` |
 | `engines` / `engineStrict` | `node >= 22` / `true` |
 | `publishConfig` | `access: public`、`registry: https://registry.npmjs.org/`、`provenance: true` |
@@ -30,14 +30,14 @@
 
 | 形态 | 消费者 | 接入方式 | 目的 |
 | --- | --- | --- | --- |
-| Gradle 模块 `:gkd-selector` | `gkd-app`（无障碍节点匹配、规则预编译、类型校验） | `implementation(project(":gkd-selector"))`（`gkd-app/build.gradle.kts`） | 设备端选择器语义的唯一实现 |
+| Gradle 模块 `:clean-selector` | `clean-app`（无障碍节点匹配、规则预编译、类型校验） | `implementation(project(":clean-selector"))`（`clean-app/build.gradle.kts`） | 设备端选择器语义的唯一实现 |
 | npm 包 `@gkd-kit/selector` | 仓库外的 JS/Web 消费者 | `workspace:*` 或 npm 安装 | 让 Web 侧（快照审查等）复用**同一份**选择器语义 |
 
 关键在于"同一份源码"：`commonMain` 与 `jsMain` 既编译进 APK 也编译成 npm 包，避免两端各写一套解析器导致语义漂移。[01-overview.md](01-overview.md) 提到快照审查是生态中 `gkd-kit/inspect` 的基础；本 checkout 不含该 Web 应用，故这里只描述 npm 包的对外契约。
 
-**`pnpm fetch-selector-dist`（根 `package.json` → `gkd-selector/scripts/fetch-dist.ts`）。** 让没有 Java / Gradle / Kotlin 的机器也能拿到可用 `dist`：(1) 读本地 `package.json` 的 `name`、`version`、`publishConfig.registry`；(2) 在临时目录写入只声明该精确版本的 `package.json` 并 `pnpm install --ignore-scripts --registry=<registry>`；(3) 校验下载包的 `name`/`version` 一致，且 `main`/`types` 必须在 `./dist/` 下且真实存在；(4) 在 `gkd-selector/build/` 建 staging，先 `rename` 走旧 `dist` 再换入新 `dist`，失败时回滚旧目录，回滚也失败则抛 `AggregateError` 并保留 staging。
+**`pnpm fetch-selector-dist`（根 `package.json` → `clean-selector/scripts/fetch-dist.ts`）。** 让没有 Java / Gradle / Kotlin 的机器也能拿到可用 `dist`：(1) 读本地 `package.json` 的 `name`、`version`、`publishConfig.registry`；(2) 在临时目录写入只声明该精确版本的 `package.json` 并 `pnpm install --ignore-scripts --registry=<registry>`；(3) 校验下载包的 `name`/`version` 一致，且 `main`/`types` 必须在 `./dist/` 下且真实存在；(4) 在 `clean-selector/build/` 建 staging，先 `rename` 走旧 `dist` 再换入新 `dist`，失败时回滚旧目录，回滚也失败则抛 `AggregateError` 并保留 staging。
 
-`pnpm-workspace.yaml` 只把 `gkd-selector` 列为 workspace 包，并把 `regex-wasm@0.1.1` 放进 `minimumReleaseAgeExclude`。三条限制需要明确：**只认精确版本**——版本取自 `gkd-selector/package.json`，永不回退，该版本未发布即失败（提示改用本地构建）；**不自动执行**——安装依赖不触发，改了选择器 Kotlin 代码必须用 `pnpm --dir gkd-selector build` 覆盖 `dist`；**不改源码**——不触碰 Kotlin 源码，且阶段 2 用 `--ignore-scripts`，不会递归执行 `prepack`。
+`pnpm-workspace.yaml` 只把 `clean-selector` 列为 workspace 包，并把 `regex-wasm@0.1.1` 放进 `minimumReleaseAgeExclude`。三条限制需要明确：**只认精确版本**——版本取自 `clean-selector/package.json`，永不回退，该版本未发布即失败（提示改用本地构建）；**不自动执行**——安装依赖不触发，改了选择器 Kotlin 代码必须用 `pnpm --dir clean-selector build` 覆盖 `dist`；**不改源码**——不触碰 Kotlin 源码，且阶段 2 用 `--ignore-scripts`，不会递归执行 `prepack`。
 
 ## 公开 API：compile / parse / tokenize
 
@@ -194,7 +194,7 @@ flowchart TD
 - 平台实现是 `internal expect fun String.compilePlatformRegex()`：`jvmMain/property/RegexCompiler.jvm.kt` 用 `Regex(this)`（java.util.regex），把 `IllegalArgumentException` 的类名与 message 拼成 `detail`；`jsMain/property/RegexCompiler.js.kt` 调用 npm 模块 `regex-wasm` 的 `toMatches(pattern)`（`jsMain/kotlin/npm/regex_wasm/RegexWasmExternal.js.kt` 声明 `@file:JsModule("regex-wasm")`），异常时取 `error.name` 与 `error.message` 拼成 `detail`。`compileWasmRegex(factory)` 是可单测的注入点。
 - 快速路径只识别三类"纯文本 + 大小写不敏感"形态：`(?is)X.*`（前缀）、`(?is).*X.*`（包含）、`(?is).*X`（后缀），且 `X` 不得含 `\^$.?*|+()[]{}`、不得含非 ASCII 大小写字符或代理项；包含判定用 KMP 失败表线性扫描，判定为"无法确定"时**回落平台正则**。
 - 语义差异因此被**显式保留**：JVM 支持 `\p{javaLowerCase}`、`(?U)` 等而 `regex-wasm` 不支持；`(?U)\w+` 在 JS 侧不匹配 `"中文"`、在 JVM 侧匹配。两个平台各有测试固化这一差异。
-- `regex-wasm` 与 WebAssembly GC：`gkd-selector/README.md` 要求运行环境具备 **WebAssembly GC 支持**，且 `regex-wasm` **在包被 import 时即完成初始化**，所以即使调用方只用 `Selector.tokenize` 也受此前提约束；推荐 Node.js ≥ 22（与 `package.json` 的 `engines` 对齐）或开启 WebAssembly GC 的现代浏览器。本 checkout 未安装 `node_modules`，`regex-wasm` 自身源码不在仓库内，"import 时初始化"一条来自 README 的陈述而非对模块代码的核验。
+- `regex-wasm` 与 WebAssembly GC：`clean-selector/README.md` 要求运行环境具备 **WebAssembly GC 支持**，且 `regex-wasm` **在包被 import 时即完成初始化**，所以即使调用方只用 `Selector.tokenize` 也受此前提约束；推荐 Node.js ≥ 22（与 `package.json` 的 `engines` 对齐）或开启 WebAssembly GC 的现代浏览器。本 checkout 未安装 `node_modules`，`regex-wasm` 自身源码不在仓库内，"import 时初始化"一条来自 README 的陈述而非对模块代码的核验。
 
 ## 匹配引擎
 
@@ -360,19 +360,19 @@ flowchart TB
 | `li.gkd.selector.engine` | 3 | `SelectorExpression`（`UnitSelectorExpression`/`LogicalSelectorExpression`/`NotSelectorExpression`）、`SelectorProgram`（字节码编译 + 匹配解释器 + `analyzeSelector` 元数据 + 类型失败收集）、`CompiledUnitSelector`（单元匹配、回溯与记忆化、trace 构造） |
 | `li.gkd.selector`（root） | 13 | 全部公开 API 与共享契约：`Selector`、三个 `*Result`、`SelectorException`、`SelectorToken`、`SelectorPosition`、`SelectorMatch`、`MatchOptions`、`FastQuery`、`SelectorTypeModel`、`DefaultSelectorTypeModel`、`NodeAdapter`、`MatchContext`、`LogicalOperator` |
 
-计数口径：`gkd-selector/src/commonMain/kotlin/li/gkd/selector/` 下共 37 个 `.kt`（root 13 + syntax 9 + property 9 + relation 3 + engine 3）。平台专属代码另计：`jsMain` 4 个（`JsNodeAdapter.kt`、`JsSelectorTypeModel.kt`、`property/RegexCompiler.js.kt`、`npm/regex_wasm/RegexWasmExternal.js.kt`），`jvmMain` 1 个（`property/RegexCompiler.jvm.kt`）。
+计数口径：`clean-selector/src/commonMain/kotlin/li/gkd/selector/` 下共 37 个 `.kt`（root 13 + syntax 9 + property 9 + relation 3 + engine 3）。平台专属代码另计：`jsMain` 4 个（`JsNodeAdapter.kt`、`JsSelectorTypeModel.kt`、`property/RegexCompiler.js.kt`、`npm/regex_wasm/RegexWasmExternal.js.kt`），`jvmMain` 1 个（`property/RegexCompiler.jvm.kt`）。
 
 ## 构建与发布流程
 
-**本地构建：`pnpm --dir gkd-selector build`（`scripts/build.ts`）。** (1) `runGradle([":gkd-selector:jsProductionExecutableCompileSync"])`——`scripts/gradle.ts` 在 Windows 上经 `ComSpec` 调用 `gradlew.bat`，其它平台直接执行 `gradlew`，工作目录为仓库根；(2) 删除并重建 `gkd-selector/dist`（先断言目标目录的父目录就是包目录，拒绝越界删除），把 `build/js/packages/gkd-selector/kotlin` 递归复制进去；(3) 对每个 `.d.mts` 执行**恰好 9 处**文本重写——8 处 `SelectorMatch`/`SelectorMatchUnit`/`SelectorMatchStep`/`JsNodeAdapter` 的泛型与构造函数签名 `extends any` → `extends {}`，加上 `abstract getNodeKey(node: T): any;` → `NonNullable<unknown>`；每处出现次数不为 1 即报错，最后断言总数为 `9 × outputs`；(4) 改写每个 `.map` 的 `sources`：含 `/gkd-selector/src/` 的重写为 `gkd-selector/src/...` 相对路径，含 `/gkd-selector/build/` 的重写为 `gkd-selector/build/...`；若一条项目源码路径都没改到则报错。
+**本地构建：`pnpm --dir clean-selector build`（`scripts/build.ts`）。** (1) `runGradle([":clean-selector:jsProductionExecutableCompileSync"])`——`scripts/gradle.ts` 在 Windows 上经 `ComSpec` 调用 `gradlew.bat`，其它平台直接执行 `gradlew`，工作目录为仓库根；(2) 删除并重建 `clean-selector/dist`（先断言目标目录的父目录就是包目录，拒绝越界删除），把 `build/js/packages/clean-selector/kotlin` 递归复制进去；(3) 对每个 `.d.mts` 执行**恰好 9 处**文本重写——8 处 `SelectorMatch`/`SelectorMatchUnit`/`SelectorMatchStep`/`JsNodeAdapter` 的泛型与构造函数签名 `extends any` → `extends {}`，加上 `abstract getNodeKey(node: T): any;` → `NonNullable<unknown>`；每处出现次数不为 1 即报错，最后断言总数为 `9 × outputs`；(4) 改写每个 `.map` 的 `sources`：含 `/clean-selector/src/` 的重写为 `clean-selector/src/...` 相对路径，含 `/clean-selector/build/` 的重写为 `clean-selector/build/...`；若一条项目源码路径都没改到则报错。
 
-`gkd-selector/README.md` 的 "Source maps" 一节解释了为何 `sources` 会出现指向 `../build/...` 的路径：Kotlin/JS 还会为编译器自有逻辑源码（标准库、`js(...)` 块合成的源码）发映射，这些文件不会被生成或发布，调试时回落到生成的 JavaScript 是预期行为。
+`clean-selector/README.md` 的 "Source maps" 一节解释了为何 `sources` 会出现指向 `../build/...` 的路径：Kotlin/JS 还会为编译器自有逻辑源码（标准库、`js(...)` 块合成的源码）发映射，这些文件不会被生成或发布，调试时回落到生成的 JavaScript 是预期行为。
 
 **校验链路与 `prepack`。**
 
 | 命令 | 内容 |
 | --- | --- |
-| `pnpm test:kotlin` | `scripts/kotlin-test.ts` → `:gkd-selector:jvmTest` + `:gkd-selector:jsNodeTest` |
+| `pnpm test:kotlin` | `scripts/kotlin-test.ts` → `:clean-selector:jvmTest` + `:clean-selector:jsNodeTest` |
 | `pnpm build` | 见上 |
 | `pnpm type-check` | `tsc`；`tsconfig.json` 的 `include` 只有 `scripts`（`strict`、`noEmit`、`verbatimModuleSyntax`、`erasableSyntaxOnly`、`allowImportingTsExtensions`） |
 | `pnpm test:node` | `node --test scripts/**/*.test.ts`，目前只有 `scripts/selector.test.ts` |
@@ -380,9 +380,9 @@ flowchart TB
 
 `scripts/selector.test.ts` 是**发布前的 JS 契约测试**：直接 `import` 构建产物，校验 token 覆盖、`Selector.compile` 的成功/失败分支、`SelectorSyntaxException` 的 `expected`/`actual`/`index`/`range`/`message` 与 `value` 抛同一实例、非法正则的 `detail` 与字面量范围、`JsNodeAdapter` 的匹配/查询/`getInvoke` 数组实参/`getNodeKey` 非空断言、`matchWithTrace` 的 `formattedRelation` 与 `relationRange`、快速查询的惰性与顺序无关性、`createDefaultSelectorTypeModel` 与 `JsSelectorTypeModelBuilder` 的类型校验；并用 `// @ts-expect-error` 保护两条 TypeScript 契约——`FastQuery.Text` 只接受可搜索操作符、`JsNodeAdapter<T>` 的 `T` 必须排除 `null`。
 
-**发布（Trusted Publishing）。** `.github/workflows/Publish-Selector.yml` 的触发条件是 tag glob `@gkd-kit/selector@*.*.*`，权限为 `contents: read` + `id-token: write`，`concurrency.group = publish-selector` 且 `cancel-in-progress: false`。步骤：(1) `actions/checkout`（`persist-credentials: false`）→ `actions/setup-java`（temurin 21）→ `gradle/actions/setup-gradle` → `pnpm/setup`；(2) `node ./gkd-selector/scripts/validate-release-tag.ts "$GITHUB_REF_NAME"`——要求 `package.json` 的 `version` 匹配 `/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/`（纯数字 `x.y.z`，拒绝预发布后缀），且 tag 严格等于 `${name}@${version}`，**版本号只以 `package.json` 为准**；(3) `pnpm -F @gkd-kit/selector publish --no-git-checks --fail-if-no-match`，触发 `prepack`，即 JVM + JS 测试、生产构建、`tsc` 类型检查、Node.js 测试全绿才会上传。
+**发布（Trusted Publishing）。** `.github/workflows/Publish-Selector.yml` 的触发条件是 tag glob `@gkd-kit/selector@*.*.*`，权限为 `contents: read` + `id-token: write`，`concurrency.group = publish-selector` 且 `cancel-in-progress: false`。步骤：(1) `actions/checkout`（`persist-credentials: false`）→ `actions/setup-java`（temurin 21）→ `gradle/actions/setup-gradle` → `pnpm/setup`；(2) `node ./clean-selector/scripts/validate-release-tag.ts "$GITHUB_REF_NAME"`——要求 `package.json` 的 `version` 匹配 `/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/`（纯数字 `x.y.z`，拒绝预发布后缀），且 tag 严格等于 `${name}@${version}`，**版本号只以 `package.json` 为准**；(3) `pnpm -F @gkd-kit/selector publish --no-git-checks --fail-if-no-match`，触发 `prepack`，即 JVM + JS 测试、生产构建、`tsc` 类型检查、Node.js 测试全绿才会上传。
 
-npm 侧一次性配置（`gkd-selector/README.md` 记录）：在 `@gkd-kit/selector` 上信任 GitHub `gkd-kit/gkd`、workflow 文件名 `Publish-Selector.yml`、允许动作 `npm publish`。`publishConfig.provenance = true` 会随包上传构建来源证明。
+npm 侧一次性配置（`clean-selector/README.md` 记录）：在 `@gkd-kit/selector` 上信任 GitHub `gkd-kit/gkd`、workflow 文件名 `Publish-Selector.yml`、允许动作 `npm publish`。`publishConfig.provenance = true` 会随包上传构建来源证明。
 
 ## 测试
 
@@ -403,48 +403,48 @@ npm 侧一次性配置（`gkd-selector/README.md` 记录）：在 `@gkd-kit/sele
 
 | 文件 | 职责 |
 | --- | --- |
-| `gkd-selector/README.md` | 权威公开说明：运行时前提（WebAssembly GC / Node ≥ 22）、workspace 开发、发布流程、source map、FastQuery 覆盖契约、快照契约、类型校验与 trace 用法 |
-| `gkd-selector/package.json` | npm 元数据：`@gkd-kit/selector@0.6.0`、ESM 入口与类型声明、`files`、`engines`、scripts、`publishConfig` |
-| `gkd-selector/build.gradle.kts` | KMP 配置：`explicitApi()`、`jvm` + `js(es2015, ESM, nodejs, generateTypeScriptDefinitions)`、源集依赖与 npm 依赖注入 |
-| `gkd-selector/tsconfig.json` | `tsc` 检查范围与严格度（只 include `scripts`） |
-| `gkd-selector/scripts/build.ts` | 本地构建：跑 Gradle JS 生产任务、重建 `dist`、改写 TS 声明与 source map 路径并做数量断言 |
-| `gkd-selector/scripts/fetch-dist.ts` | `pnpm fetch-selector-dist`：下载已发布版本、校验、原子替换本地 `dist` |
-| `gkd-selector/scripts/kotlin-test.ts`、`gradle.ts`、`validate-release-tag.ts` | 分别负责执行 `jvmTest`/`jsNodeTest`、跨平台 `gradlew` 调用封装、发布前 `x.y.z` 与 `tag === name@version` 校验 |
-| `gkd-selector/scripts/selector.test.ts` | 构建产物的 Node.js 契约测试（含两条 `@ts-expect-error` 类型契约） |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/Selector.kt` | 公开门面：`compile`/`parse`/`tokenize`、`match`/`matchWithTrace`、`validateType`/`getTypeErrors`、`isMatchRoot`、`toString` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/SelectorResults.kt` | `SelectorCompileResult`/`SelectorParseResult`/`SelectorTypeResult` 与 `value` 抛错行为；同包 `SelectorException.kt` 定义 `SelectorSyntaxException`（`expected`/`actual`/`range`/`detail`/`index`）、`SelectorTypeErrorKind`（7 种）、`SelectorTypeException` 与内部 `TypeCheckFailure` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/SelectorToken.kt` | `SelectorTokenKind`（15）、`SelectorTokenScope`（3）、`SelectorToken`；同包 `SelectorPosition.kt` 定义 `SelectorPositionKind`（19）、`SourceRange`、`SelectorPosition` 与内部 `SelectorSourceMap` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/SelectorMatch.kt` | `SelectorRelationKind`、`SelectorMatch`、`SelectorMatchUnit`、`SelectorMatchStep` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/MatchOptions.kt` | `MatchOptions(fastQuery)` 与 `MatchOptions.default`；同包 `MatchContext.kt` 是内部路径上下文（`current`/`prev`/`incomingOffset`/`getPrev`/`get`/`toContextList`/`next`） |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/NodeAdapter.kt` | 抽象适配器与快照契约、`TraversalCandidate`、`getRoot`/`getChildren`/`getDescendants`、6 个 `traverse*` 默认遍历、`getFastQueryDescendants`、查询辅助方法与 `getFastQueryDescendantsExcludingSelf` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/FastQuery.kt` | `FastQuery` 与 `Id`/`Vid`/`Text` 子类、`attributeName`、`acceptValue` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/LogicalOperator.kt` | 内部 `LogicalOperator.And("&&", 2)`/`Or("\|\|", 1)` 与 `parseOrder` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/SelectorTypeModel.kt` | `SelectorTypeKind`、`SelectorMethod`、`SelectorProperty`、`SelectorType`、公开的 `SelectorTypeModelBuilder`、`SelectorTypeModel`；同包 `DefaultSelectorTypeModel.kt` 提供 `createDefaultSelectorTypeModel(webField)` 与内建 GKD 类型模型（节点属性/方法、`context`、`global`） |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/syntax/SelectorParser.kt` | 选择器级解析：表达式帧、括号分组、`!(...)`、逻辑优先级归约、单元链与隐式祖先关系 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/syntax/PropertySyntaxParser.kt` | `[` 内解析：属性名（点分与 `*`）、过滤器、比较表达式、正则编译与失败定位、值表达式 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/syntax/RelationSyntaxParser.kt` | 关系操作符、元组 `(1,2,3)` 与多项式 `an+b` 的解析与合法性校验 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/syntax/SelectorTokenizer.kt` | 容错词法扫描：由括号深度与关系活动状态驱动的 `kind`/`scope` 判定 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/syntax/SelectorPrinter.kt` | 规范化打印：选择器/属性/值三层渲染、`escapeString`、关系与多项式格式化 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/syntax/ParserCursor.kt` | 字符常量（`WHITESPACE_CHARS`、`PROPERTY_START_CHARS`、`CONNECT_START_CHARS` 等）、`readWhitespace`/`readInt`/`readString`、`errorExpected`；同包 `StringScanner.kt` 负责字符串字面量扫描与转义解码 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/syntax/ParserContext.kt` | `positioned { }` 与 `record`/`recordPosition` 的位置记录入口；同包 `PositionRecorder.kt` 提供 `freeze()`/`freezePositions()` 与值→`SourceRange` 映射 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/PropertySelector.kt` | 名称匹配（点分后缀）、过滤器求值、`fastQueryList` 推导、`usesPreviousContext`、`isMatchRoot` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/PropertyExpression.kt` | `ComparisonExpression`（`ValueComparison`／已绑定匹配函数的 `RegexComparison`）、`LogicalExpression`、`NotExpression` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/ValueExpression.kt` | 值 AST：`Identifier`（含 `IdentifierRole`）、`MemberExpression`、`CallExpression`、四种 `LiteralExpression` 与 `isStringOperand`/`isIntOperand` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/ExpressionEvaluator.kt` | 属性表达式求值与 `&&`/`\|\|` 短路；`collectBinaryExpressions`、`collectOrFastQueryExpressions`、`usesPreviousContext` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/ValueEvaluator.kt` | 值求值：显式栈、null 传播、保留标识符解析、`readProperty`、内建优先与 `adapter.getInvoke` 回落 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/ExpressionTypeChecker.kt` | 类型推断与错误收集（`TypeCheckCollector`、`TypeInferenceResult`、`inferType`、调用签名匹配） |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/BuiltinMembers.kt` | `BuiltinScope`/`BuiltinMethodId`/`BuiltinTypeSet`/`BuiltinInvocation` 与内建方法表、求值实现、短路判定 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/CompareOperator.kt` | `FastQueryOperator`、14 个比较操作符（`ValueOperator`/`RegexOperator`）、`comparePrimitiveValue` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/property/RegexCompiler.kt` | `RegexCompileResult`、`compileRegex()` 的简单正则快速路径、`expect fun String.compilePlatformRegex()` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/relation/RelationOperator.kt` | 6 个关系操作符、`formatOffset`、`parseOrder`、各自的 `traversal` 实现 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/relation/RelationExpression.kt` | `RelationExpression` 接口、`TupleExpression`、`PolynomialExpression`（`isValid`、`minOffset`/`maxOffset`/`checkOffset`）；同包 `RelationSelector.kt` 组合操作符与偏移表达式并暴露 `isMatchAnyAncestor`/`isMatchAnyDescendant` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/engine/SelectorProgram.kt` | 字节码指令集与解释器、`ProgramCompiler`、`analyzeSelector`（`fastQueryList` 与 `isMatchRoot` 合并）、类型失败收集入口；同包 `SelectorExpression.kt` 是 `UnitSelectorExpression`/`LogicalSelectorExpression`/`NotSelectorExpression` |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/engine/CompiledUnitSelector.kt` | 单元匹配主循环、`cacheablePropertySelectorCount` 缓存边界、失败状态记忆化、候选来源三分支、trace 构造与 `resolveTraceOffset` |
-| `gkd-selector/src/jsMain/kotlin/li/gkd/selector/JsNodeAdapter.kt` | JS 适配器：`JsIterable`/`JsArray` 互转、`checkedNodeKey` 非空断言、内部 `core: NodeAdapter` 桥接、`match*`/`query*` 辅助方法；同目录 `JsSelectorTypeModel.kt` 提供 `JsSelectorTypeKind`、`JsSelectorType`、`JsSelectorTypeModelBuilder` |
-| `gkd-selector/src/jsMain/kotlin/li/gkd/selector/property/RegexCompiler.js.kt` | JS `actual`：`regex-wasm` 编译、`compileWasmRegex` 诊断拼装、整体匹配适配；同模块 `npm/regex_wasm/RegexWasmExternal.js.kt` 是 `@file:JsModule("regex-wasm")` 的 `toMatches` 外部声明 |
-| `gkd-selector/src/jvmMain/kotlin/li/gkd/selector/property/RegexCompiler.jvm.kt` | JVM `actual`：`Regex(this)` 与 `IllegalArgumentException` 诊断 |
-| `gkd-selector/src/commonTest/kotlin/li/gkd/selector/` | 7 个测试类 + 2 个夹具：`SelectorSyntaxTest.kt`、`SelectorQueryTest.kt`、`SelectorTokenizerTest.kt`、`SelectorPositionTest.kt`、`SelectorTypeTest.kt`、`RegexOptimizationTest.kt`、`SelectorOptimizationTest.kt`、`TestNode.kt`、`SelectorTestFixture.kt` |
-| `gkd-selector/src/jvmTest/kotlin/li/gkd/selector/` | `JvmRegexContractTest.kt`（JVM 正则差异与线性时间上界）、`SelectorColdStartTest.kt`（冷启动 JVM 探针） |
-| `gkd-selector/src/jsTest/kotlin/li/gkd/selector/WasmRegexTest.kt` | `regex-wasm` 匹配语义、平台差异与构造失败诊断 |
+| `clean-selector/README.md` | 权威公开说明：运行时前提（WebAssembly GC / Node ≥ 22）、workspace 开发、发布流程、source map、FastQuery 覆盖契约、快照契约、类型校验与 trace 用法 |
+| `clean-selector/package.json` | npm 元数据：`@gkd-kit/selector@0.6.0`、ESM 入口与类型声明、`files`、`engines`、scripts、`publishConfig` |
+| `clean-selector/build.gradle.kts` | KMP 配置：`explicitApi()`、`jvm` + `js(es2015, ESM, nodejs, generateTypeScriptDefinitions)`、源集依赖与 npm 依赖注入 |
+| `clean-selector/tsconfig.json` | `tsc` 检查范围与严格度（只 include `scripts`） |
+| `clean-selector/scripts/build.ts` | 本地构建：跑 Gradle JS 生产任务、重建 `dist`、改写 TS 声明与 source map 路径并做数量断言 |
+| `clean-selector/scripts/fetch-dist.ts` | `pnpm fetch-selector-dist`：下载已发布版本、校验、原子替换本地 `dist` |
+| `clean-selector/scripts/kotlin-test.ts`、`gradle.ts`、`validate-release-tag.ts` | 分别负责执行 `jvmTest`/`jsNodeTest`、跨平台 `gradlew` 调用封装、发布前 `x.y.z` 与 `tag === name@version` 校验 |
+| `clean-selector/scripts/selector.test.ts` | 构建产物的 Node.js 契约测试（含两条 `@ts-expect-error` 类型契约） |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/Selector.kt` | 公开门面：`compile`/`parse`/`tokenize`、`match`/`matchWithTrace`、`validateType`/`getTypeErrors`、`isMatchRoot`、`toString` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/SelectorResults.kt` | `SelectorCompileResult`/`SelectorParseResult`/`SelectorTypeResult` 与 `value` 抛错行为；同包 `SelectorException.kt` 定义 `SelectorSyntaxException`（`expected`/`actual`/`range`/`detail`/`index`）、`SelectorTypeErrorKind`（7 种）、`SelectorTypeException` 与内部 `TypeCheckFailure` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/SelectorToken.kt` | `SelectorTokenKind`（15）、`SelectorTokenScope`（3）、`SelectorToken`；同包 `SelectorPosition.kt` 定义 `SelectorPositionKind`（19）、`SourceRange`、`SelectorPosition` 与内部 `SelectorSourceMap` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/SelectorMatch.kt` | `SelectorRelationKind`、`SelectorMatch`、`SelectorMatchUnit`、`SelectorMatchStep` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/MatchOptions.kt` | `MatchOptions(fastQuery)` 与 `MatchOptions.default`；同包 `MatchContext.kt` 是内部路径上下文（`current`/`prev`/`incomingOffset`/`getPrev`/`get`/`toContextList`/`next`） |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/NodeAdapter.kt` | 抽象适配器与快照契约、`TraversalCandidate`、`getRoot`/`getChildren`/`getDescendants`、6 个 `traverse*` 默认遍历、`getFastQueryDescendants`、查询辅助方法与 `getFastQueryDescendantsExcludingSelf` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/FastQuery.kt` | `FastQuery` 与 `Id`/`Vid`/`Text` 子类、`attributeName`、`acceptValue` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/LogicalOperator.kt` | 内部 `LogicalOperator.And("&&", 2)`/`Or("\|\|", 1)` 与 `parseOrder` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/SelectorTypeModel.kt` | `SelectorTypeKind`、`SelectorMethod`、`SelectorProperty`、`SelectorType`、公开的 `SelectorTypeModelBuilder`、`SelectorTypeModel`；同包 `DefaultSelectorTypeModel.kt` 提供 `createDefaultSelectorTypeModel(webField)` 与内建 GKD 类型模型（节点属性/方法、`context`、`global`） |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/syntax/SelectorParser.kt` | 选择器级解析：表达式帧、括号分组、`!(...)`、逻辑优先级归约、单元链与隐式祖先关系 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/syntax/PropertySyntaxParser.kt` | `[` 内解析：属性名（点分与 `*`）、过滤器、比较表达式、正则编译与失败定位、值表达式 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/syntax/RelationSyntaxParser.kt` | 关系操作符、元组 `(1,2,3)` 与多项式 `an+b` 的解析与合法性校验 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/syntax/SelectorTokenizer.kt` | 容错词法扫描：由括号深度与关系活动状态驱动的 `kind`/`scope` 判定 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/syntax/SelectorPrinter.kt` | 规范化打印：选择器/属性/值三层渲染、`escapeString`、关系与多项式格式化 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/syntax/ParserCursor.kt` | 字符常量（`WHITESPACE_CHARS`、`PROPERTY_START_CHARS`、`CONNECT_START_CHARS` 等）、`readWhitespace`/`readInt`/`readString`、`errorExpected`；同包 `StringScanner.kt` 负责字符串字面量扫描与转义解码 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/syntax/ParserContext.kt` | `positioned { }` 与 `record`/`recordPosition` 的位置记录入口；同包 `PositionRecorder.kt` 提供 `freeze()`/`freezePositions()` 与值→`SourceRange` 映射 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/PropertySelector.kt` | 名称匹配（点分后缀）、过滤器求值、`fastQueryList` 推导、`usesPreviousContext`、`isMatchRoot` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/PropertyExpression.kt` | `ComparisonExpression`（`ValueComparison`／已绑定匹配函数的 `RegexComparison`）、`LogicalExpression`、`NotExpression` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/ValueExpression.kt` | 值 AST：`Identifier`（含 `IdentifierRole`）、`MemberExpression`、`CallExpression`、四种 `LiteralExpression` 与 `isStringOperand`/`isIntOperand` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/ExpressionEvaluator.kt` | 属性表达式求值与 `&&`/`\|\|` 短路；`collectBinaryExpressions`、`collectOrFastQueryExpressions`、`usesPreviousContext` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/ValueEvaluator.kt` | 值求值：显式栈、null 传播、保留标识符解析、`readProperty`、内建优先与 `adapter.getInvoke` 回落 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/ExpressionTypeChecker.kt` | 类型推断与错误收集（`TypeCheckCollector`、`TypeInferenceResult`、`inferType`、调用签名匹配） |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/BuiltinMembers.kt` | `BuiltinScope`/`BuiltinMethodId`/`BuiltinTypeSet`/`BuiltinInvocation` 与内建方法表、求值实现、短路判定 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/CompareOperator.kt` | `FastQueryOperator`、14 个比较操作符（`ValueOperator`/`RegexOperator`）、`comparePrimitiveValue` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/property/RegexCompiler.kt` | `RegexCompileResult`、`compileRegex()` 的简单正则快速路径、`expect fun String.compilePlatformRegex()` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/relation/RelationOperator.kt` | 6 个关系操作符、`formatOffset`、`parseOrder`、各自的 `traversal` 实现 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/relation/RelationExpression.kt` | `RelationExpression` 接口、`TupleExpression`、`PolynomialExpression`（`isValid`、`minOffset`/`maxOffset`/`checkOffset`）；同包 `RelationSelector.kt` 组合操作符与偏移表达式并暴露 `isMatchAnyAncestor`/`isMatchAnyDescendant` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/engine/SelectorProgram.kt` | 字节码指令集与解释器、`ProgramCompiler`、`analyzeSelector`（`fastQueryList` 与 `isMatchRoot` 合并）、类型失败收集入口；同包 `SelectorExpression.kt` 是 `UnitSelectorExpression`/`LogicalSelectorExpression`/`NotSelectorExpression` |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/engine/CompiledUnitSelector.kt` | 单元匹配主循环、`cacheablePropertySelectorCount` 缓存边界、失败状态记忆化、候选来源三分支、trace 构造与 `resolveTraceOffset` |
+| `clean-selector/src/jsMain/kotlin/li/gkd/selector/JsNodeAdapter.kt` | JS 适配器：`JsIterable`/`JsArray` 互转、`checkedNodeKey` 非空断言、内部 `core: NodeAdapter` 桥接、`match*`/`query*` 辅助方法；同目录 `JsSelectorTypeModel.kt` 提供 `JsSelectorTypeKind`、`JsSelectorType`、`JsSelectorTypeModelBuilder` |
+| `clean-selector/src/jsMain/kotlin/li/gkd/selector/property/RegexCompiler.js.kt` | JS `actual`：`regex-wasm` 编译、`compileWasmRegex` 诊断拼装、整体匹配适配；同模块 `npm/regex_wasm/RegexWasmExternal.js.kt` 是 `@file:JsModule("regex-wasm")` 的 `toMatches` 外部声明 |
+| `clean-selector/src/jvmMain/kotlin/li/gkd/selector/property/RegexCompiler.jvm.kt` | JVM `actual`：`Regex(this)` 与 `IllegalArgumentException` 诊断 |
+| `clean-selector/src/commonTest/kotlin/li/gkd/selector/` | 7 个测试类 + 2 个夹具：`SelectorSyntaxTest.kt`、`SelectorQueryTest.kt`、`SelectorTokenizerTest.kt`、`SelectorPositionTest.kt`、`SelectorTypeTest.kt`、`RegexOptimizationTest.kt`、`SelectorOptimizationTest.kt`、`TestNode.kt`、`SelectorTestFixture.kt` |
+| `clean-selector/src/jvmTest/kotlin/li/gkd/selector/` | `JvmRegexContractTest.kt`（JVM 正则差异与线性时间上界）、`SelectorColdStartTest.kt`（冷启动 JVM 探针） |
+| `clean-selector/src/jsTest/kotlin/li/gkd/selector/WasmRegexTest.kt` | `regex-wasm` 匹配语义、平台差异与构造失败诊断 |
 | `.github/workflows/Publish-Selector.yml` | tag 触发的 npm Trusted Publishing 流程（校验 tag → `pnpm -F @gkd-kit/selector publish`） |
 | `package.json`（仓库根）、`pnpm-workspace.yaml` | `fetch-selector-dist` 脚本入口；workspace 包列表与 `minimumReleaseAgeExclude` |

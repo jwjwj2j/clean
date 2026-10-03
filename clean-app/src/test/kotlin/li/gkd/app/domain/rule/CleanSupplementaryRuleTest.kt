@@ -34,7 +34,7 @@ class CleanSupplementaryRuleTest {
         fun readAsset(name: String): String {
             val candidates = listOf(
                 File("src/main/assets/$name"),
-                File("gkd-app/src/main/assets/$name"),
+                File("clean-app/src/main/assets/$name"),
             )
             val hit = candidates.firstOrNull { it.isFile }
             assertNotNull(

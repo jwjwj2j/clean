@@ -30,7 +30,7 @@ jobs:
       - name: write clean keystore
         run: echo ${{ secrets.GKD_STORE_FILE_BASE64 }} | base64 --decode > ${{ github.workspace }}/clean.jks
 
-      - run: ./gradlew :gkd-app:assembleRelease
+      - run: ./gradlew :clean-app:assembleRelease
         env:
           GKD_STORE_FILE: ${{ github.workspace }}/clean.jks
           GKD_STORE_PASSWORD: ${{ secrets.GKD_STORE_PASSWORD }}
@@ -41,9 +41,9 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           archive: false
-          path: gkd-app/build/outputs/apk/release/*.apk
+          path: clean-app/build/outputs/apk/release/*.apk
 
       - uses: actions/upload-artifact@v7
         with:
           name: outputs
-          path: gkd-app/build/outputs
+          path: clean-app/build/outputs

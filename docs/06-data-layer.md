@@ -1,7 +1,7 @@
 # 数据与持久化层
 
-> 本文档描述 GKD 的持久化与设置层：`gkd-db`（Room3 数据库、实体、DAO、迁移）、`gkd-app` 的设置文件、订阅文件、快照文件、日志与备份。
-> 设计基线见 [gkd-app/ARCHITECTURE.md](../gkd-app/ARCHITECTURE.md) 的「状态与写入边界」「协程、线程与并发」两节，跨模块视角见 [02-architecture.md](02-architecture.md)。三者冲突时以源码为准。
+> 本文档描述 GKD 的持久化与设置层：`clean-db`（Room3 数据库、实体、DAO、迁移）、`clean-app` 的设置文件、订阅文件、快照文件、日志与备份。
+> 设计基线见 [clean-app/ARCHITECTURE.md](../clean-app/ARCHITECTURE.md) 的「状态与写入边界」「协程、线程与并发」两节，跨模块视角见 [02-architecture.md](02-architecture.md)。三者冲突时以源码为准。
 > 本文只描述代码中确实存在的表、列、DAO 方法与迁移语句；无法从代码或 schema 快照确认的历史信息会显式标注。
 
 ## 1. 存储总览
@@ -10,9 +10,9 @@ GKD 把状态分成 5 类存储。它们的事实源不同，原子性策略也�
 
 ```mermaid
 flowchart TD
-    APP["gkd-app 业务层"]
+    APP["clean-app 业务层"]
 
-    subgraph DB["Room 数据库 gkd-db"]
+    subgraph DB["Room 数据库 clean-db"]
         ROOM["AppDb v16<br/>10 张表"]
     end
 
@@ -42,21 +42,21 @@ flowchart TD
 
 | 存储 | 事实源 | 原子性策略 |
 | --- | --- | --- |
-| Room 数据库（`gkd-db`） | SQLite 文件 `FolderUtils.dbFolder/gkd.db`，路径由 `App.onCreate` 传给 `Db.initialize` | 单条 DAO 语句即一次事务；跨表写入统一走 `Db.withTransaction`（`withWriteTransaction`） |
+| Room 数据库（`clean-db`） | SQLite 文件 `FolderUtils.dbFolder/gkd.db`，路径由 `App.onCreate` 传给 `Db.initialize` | 单条 DAO 语句即一次事务；跨表写入统一走 `Db.withTransaction`（`withWriteTransaction`） |
 | 设置文件（`SettingsRepository`） | `FolderUtils.storeFolder` 下 5 个文件：`store.json`、`action_count.txt`、`block_match_app_list.txt`、`block_a11y_app_list.txt`、`a11y_scope_app_list.txt` | 临时文件 `*.tmp` 写入 + `fd.sync()` + `Files.move(ATOMIC_MOVE, REPLACE_EXISTING)`；`Channel.CONFLATED` 写队列 + 版本号，`awaitPersistence` 以版本号判定落盘 |
 | 非备份临时状态文件（`FileStateStore`） | 同样位于 `storeFolder`（`private=true` 时为 `privateStoreFolder`） | 与设置相同的临时文件 + 原子重命名；只用 `drop(1).conflate()` 持久化，不参与备份 |
 | 订阅文件 | `FolderUtils.subsFolder/<id>.json`；数据库 `subs_item` 只保存订阅元数据 | `android.util.AtomicFile` 的 `startWrite/finishWrite/failWrite`；`SubscriptionPersistence` 在数据库失败时用 `SubscriptionFileStore.restore` 补偿 |
 | 快照文件 | `FolderUtils.snapshotFolder/<id>/` 目录；数据库 `snapshot` 行只是可查询索引 | 暂存目录 `.<id>.tmp` 写完后 `renameTo` 正式目录，再发布数据库行；失败删除正式目录或暂存目录 |
 | 日志与裁剪 | `action_log`、`activity_log`、`a11y_event_log`、`app_last_visit` 4 张表 | 单条/批量插入；裁剪由各自 DAO 的 `deleteKeepLatest()` 完成，由业务侧每约 100 次操作触发 |
 
-## 2. 数据库（`gkd-db`）
+## 2. 数据库（`clean-db`）
 
 ### 2.1 版本与生成方式
 
-`gkd-db/src/commonMain/kotlin/li/gkd/db/AppDb.kt` 定义 `@Database(version = 16, entities = [...10 个实体...], autoMigrations = [...14 条...])`，并用 `@ColumnTypeConverters(DbConverters::class)`、`@ConstructedBy(AppDbConstructor::class)` 声明转换器与构造函数。
+`clean-db/src/commonMain/kotlin/li/gkd/db/AppDb.kt` 定义 `@Database(version = 16, entities = [...10 个实体...], autoMigrations = [...14 条...])`，并用 `@ColumnTypeConverters(DbConverters::class)`、`@ConstructedBy(AppDbConstructor::class)` 声明转换器与构造函数。
 
 - `AppDbConstructor` 是 `commonMain` 中的 `internal expect object ... : RoomDatabaseConstructor<AppDb>`（带 `@Suppress("KotlinNoActualForExpect")`），actual 由 Room3 的 KSP 处理器生成，因此 `commonMain` 不需要 `Context`。
-- schema 快照由 `room3 { schemaDirectory("$projectDir/schemas") }` 输出到 `gkd-db/schemas/li.gkd.db.AppDb/1.json` ~ `16.json`；`gkd-db/build.gradle.kts` 还把 `room.schemaDirectory` 作为系统属性传给测试 JVM，供 `MigrationTestHelper` 定位 schema。
+- schema 快照由 `room3 { schemaDirectory("$projectDir/schemas") }` 输出到 `clean-db/schemas/li.gkd.db.AppDb/1.json` ~ `16.json`；`clean-db/build.gradle.kts` 还把 `room.schemaDirectory` 作为系统属性传给测试 JVM，供 `MigrationTestHelper` 定位 schema。
 - 构建：`kotlin.multiplatform` + `com.android.kotlin.multiplatform.library`（`namespace = "li.gkd.db"`）+ `androidx.room3` + KSP；KSP 处理器分别注册到 `kspAndroid` 与 `kspJvm`。
 
 ### 2.2 实体清单
@@ -97,17 +97,17 @@ flowchart TD
 
 ### 2.4 `Db` 对象的暴露方式
 
-`Db` 是 `commonMain` 中的 `object`，是应用唯一的数据库门面（`gkd-db/src/commonMain/kotlin/li/gkd/db/Db.kt`）：
+`Db` 是 `commonMain` 中的 `object`，是应用唯一的数据库门面（`clean-db/src/commonMain/kotlin/li/gkd/db/Db.kt`）：
 
 - `internal fun initialize(createDatabase: () -> AppDb)`：二次初始化会 `check` 失败抛出「Db is already initialized」。
 - `private val database by lazy { ... }`：首次访问任何 DAO 时才真正建库；未初始化时抛「Db is not initialized」。
 - 对外暴露 `subscriptionConfigStore`（`by lazy { SubscriptionConfigStore(database) }`）以及 10 个 DAO getter：`subsItemDao`、`subsAppGroupConfigDao`、`subsGlobalGroupConfigDao`、`snapshotDao`、`actionLogDao`、`subsCategoryConfigDao`、`activityLogDao`、`subsAppConfigDao`、`appLastVisitDao`、`a11yEventLogDao`。
 - `suspend fun <T> withTransaction(block: suspend () -> T): T = database.withWriteTransaction { block() }`。
-- Android 侧扩展函数在 `androidMain`：`fun Db.initialize(context: Context, databasePath: String)`。`gkd-app/App.kt` 在 `onCreate` 中调用 `Db.initialize(this, FolderUtils.dbFolder.resolve("gkd.db").absolutePath)`，且在所有运行时组件之前。
+- Android 侧扩展函数在 `androidMain`：`fun Db.initialize(context: Context, databasePath: String)`。`clean-app/App.kt` 在 `onCreate` 中调用 `Db.initialize(this, FolderUtils.dbFolder.resolve("gkd.db").absolutePath)`，且在所有运行时组件之前。
 
 ### 2.5 `commonMain` / `androidMain` 差异，以及 Room3 与 SQLite 驱动的选择
 
-`gkd-db/src/androidMain/kotlin/li/gkd/db/Db.android.kt` 只有 21 行，承担全部平台绑定：
+`clean-db/src/androidMain/kotlin/li/gkd/db/Db.android.kt` 只有 21 行，承担全部平台绑定：
 
 ```kotlin
 Room.databaseBuilder(applicationContext, AppDb::class.java, databasePath)
@@ -129,7 +129,7 @@ Room.databaseBuilder(applicationContext, AppDb::class.java, databasePath)
 
 ### 3.1 `Migration14To15`（手写，唯一非自动迁移）
 
-`gkd-db/src/commonMain/kotlin/li/gkd/db/Migration14To15.kt` 是 `object Migration14To15 : Migration(14, 15)`，逐条语句如下（源码注释：保留每个业务键中 id 最小的整条记录；被删除订阅遗留的孤儿覆盖在新 schema 中已无归属）：
+`clean-db/src/commonMain/kotlin/li/gkd/db/Migration14To15.kt` 是 `object Migration14To15 : Migration(14, 15)`，逐条语句如下（源码注释：保留每个业务键中 id 最小的整条记录；被删除订阅遗留的孤儿覆盖在新 schema 中已无归属）：
 
 1. `CREATE TABLE app_group_config(subs_id, app_id, group_key, enable, exclude DEFAULT '', PK(subs_id, app_id, group_key), FK subs_id → subs_item(id) ON DELETE CASCADE)`。
 2. `INSERT INTO app_group_config SELECT ... FROM subs_config WHERE id IN (SELECT MIN(id) FROM subs_config WHERE type = 2 AND subs_id IN (SELECT id FROM subs_item) GROUP BY subs_id, app_id, group_key)` —— 只搬 `type = 2`（应用内规则组）、只保留同一业务键中 id 最小的一条、并过滤掉孤儿订阅。
@@ -139,11 +139,11 @@ Room.databaseBuilder(applicationContext, AppDb::class.java, databasePath)
 6. 重建 `category_config`：同样先建 `category_config_new(subs_id, category_key, enable, PK(subs_id, category_key), FK CASCADE)`，按 `MIN(id)` 去重搬入，`DROP TABLE category_config`，再 `RENAME`。
 7. `DROP TABLE subs_config` —— 旧的三类配置合一表在此彻底消失。
 
-注意 `AutoMigration` 列表中 **没有** `AutoMigration(from = 14, to = 15)`；`gkd-db` 的 `androidMain`（生产库）与 `jvmTest`（`AppDbMigrationTest.openDatabase`、`runMigrationsAndValidate`）都通过 `addMigrations(Migration14To15)` 注册它。schema 14→15 的差异（`subs_config` 消失、`app_config`/`category_config` 换主键、`app_group_config`/`global_group_config` 新增）与上述语句完全对应。
+注意 `AutoMigration` 列表中 **没有** `AutoMigration(from = 14, to = 15)`；`clean-db` 的 `androidMain`（生产库）与 `jvmTest`（`AppDbMigrationTest.openDatabase`、`runMigrationsAndValidate`）都通过 `addMigrations(Migration14To15)` 注册它。schema 14→15 的差异（`subs_config` 消失、`app_config`/`category_config` 换主键、`app_group_config`/`global_group_config` 新增）与上述语句完全对应。
 
 ### 3.2 `Migration15To16Spec`（自动迁移 spec）
 
-`gkd-db/src/commonMain/kotlin/li/gkd/db/Migration15To16Spec.kt` 是 `class Migration15To16Spec : AutoMigrationSpec`，通过注解声明重命名，由 Room 生成实际 SQL：
+`clean-db/src/commonMain/kotlin/li/gkd/db/Migration15To16Spec.kt` 是 `class Migration15To16Spec : AutoMigrationSpec`，通过注解声明重命名，由 Room 生成实际 SQL：
 
 | 注解 | 内容 |
 | --- | --- |
@@ -165,7 +165,7 @@ Room.databaseBuilder(applicationContext, AppDb::class.java, databasePath)
 
 ### 3.4 schema 1..16 演进
 
-下表的每一行都由 `gkd-db/schemas/li.gkd.db.AppDb/N.json` 与 `N+1.json` 中实体的 `createSql`/`fields`/`primaryKey`/`foreignKeys` 实际差异得出。
+下表的每一行都由 `clean-db/schemas/li.gkd.db.AppDb/N.json` 与 `N+1.json` 中实体的 `createSql`/`fields`/`primaryKey`/`foreignKeys` 实际差异得出。
 
 | 迁移 | 变化 | 迁移通道 |
 | --- | --- | --- |
@@ -210,7 +210,7 @@ flowchart LR
 
 ### 4.1 `SettingsStore` / `SettingsRepository` / `AppStore` 的关系
 
-- `SettingsStore`（`gkd-app/src/main/kotlin/li/gkd/app/data/settings/SettingsStore.kt`）是 `@Serializable` 的纯数据类，字段默认值即首次安装的默认设置；只提供两个派生属性 `useA11y`、`useAutomation`（由 `automatorMode` 与 `AutomatorModeOption` 比较得到）。
+- `SettingsStore`（`clean-app/src/main/kotlin/li/gkd/app/data/settings/SettingsStore.kt`）是 `@Serializable` 的纯数据类，字段默认值即首次安装的默认设置；只提供两个派生属性 `useA11y`、`useAutomation`（由 `automatorMode` 与 `AutomatorModeOption` 比较得到）。
 - `SettingsRepository` 持有一个 `SettingsStore` 加 4 个附属值（`actionCount: Long`、`blockMatchAppList`、`blockA11yAppList`、`a11yScopeAppList`），每个都由内部类 `PersistedValue` 承载，并从 `storeFolder` 读取/写入同名文件。它对外只暴露只读 `StateFlow` 与 `update/replace` 系列方法。
 - `AppStore` 是 `object` 门面：`private val repository by lazy { SettingsRepository(...) }`，参数为 `FolderUtils.storeFolder`、`appScope`、`defaultSettings = { SettingsStore() }`、`defaultBlockMatchAppList = AppListString::getDefaultBlockList`。它把 DAO/仓库细节挡在 UI 之外，并额外提供 `actualBlockA11yAppList`、`actualA11yScopeAppList`、`checkAppBlockMatch(appId)`、`toggleEnableMatch()`、`updateEnableAutomator(value)`、`updateAutomatorMode(value)` 等派生逻辑，以及备份相关的 `backupFilenames`、`exportBackupEntries()`、`withBackupRestore(...)` 透传。
 
@@ -262,7 +262,7 @@ flowchart LR
 
 ### 5.1 `FileStateStore` 的文件格式与原子写入
 
-`gkd-app/src/main/kotlin/li/gkd/app/store/FileStateStore.kt` 是一个极简的「文件即状态」工具：
+`clean-app/src/main/kotlin/li/gkd/app/store/FileStateStore.kt` 是一个极简的「文件即状态」工具：
 
 - 文件名规则：`createTextFlow(key, ...)` 中若 `key` 含 `.` 就原样作为文件名，否则追加 `.txt`；`createJsonFlow<T>(key, ...)` 直接以 `"$key.json"` 为文件名。
 - 目录：默认 `FolderUtils.storeFolder`，`private = true` 时改用 `FolderUtils.privateStoreFolder`（`app.filesDir/private-store`，与可被外部文件管理器访问的 `storeFolder` 分开）。当前调用点：`terms_accepted`（`MainViewModel`，文本）、`overlay_position`（`OverlayWindowService`，JSON）、`ignore_version_list`（`Upgrade`，JSON）、`github_cookie`（`GithubUploadState`，`private = true`）。
@@ -273,7 +273,7 @@ flowchart LR
 
 ### 5.2 `Loadable` 状态机
 
-`gkd-app/src/main/kotlin/li/gkd/app/core/state/Loadable.kt`：
+`clean-app/src/main/kotlin/li/gkd/app/core/state/Loadable.kt`：
 
 ```mermaid
 stateDiagram-v2
@@ -293,8 +293,8 @@ stateDiagram-v2
 ### 6.1 实体与文件目录布局
 
 - 数据库行：`Snapshot`（实现 `BaseSnapshot`），只保存 `id`、`app_id`、`activity_id`、`screen_height`、`screen_width`、`is_landscape`、`github_asset_id`。
-- 文件载荷：`ComplexSnapshot`（`gkd-app/src/main/kotlin/li/gkd/app/data/ComplexSnapshot.kt`）是 `@Serializable`，在 `BaseSnapshot` 字段之外还带 `appInfo`、`gkdAppInfo`、`device`、`nodes`，并提供 `toSnapshot()` 投影到数据库行。**用途分工**：数据库行负责列表、排序与上传状态，`ComplexSnapshot` 负责可离线查看与上传的完整信息（含节点树）。
-- 目录布局由 `gkd-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotFileLayout.kt` 决定，根目录是 `FolderUtils.snapshotFolder`：
+- 文件载荷：`ComplexSnapshot`（`clean-app/src/main/kotlin/li/gkd/app/data/ComplexSnapshot.kt`）是 `@Serializable`，在 `BaseSnapshot` 字段之外还带 `appInfo`、`gkdAppInfo`、`device`、`nodes`，并提供 `toSnapshot()` 投影到数据库行。**用途分工**：数据库行负责列表、排序与上传状态，`ComplexSnapshot` 负责可离线查看与上传的完整信息（含节点树）。
+- 目录布局由 `clean-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotFileLayout.kt` 决定，根目录是 `FolderUtils.snapshotFolder`：
   - 正式目录 `rootDirectory/<id>/`，内含 `$id.json`（`ComplexSnapshot`，用 `keepNullJson` 写出，保留 null）、`$id.min.json`（把 `nodes` 置空后的轻量版）、`$id.webp`（截图）、以及历史遗留的 `$id.png`。
   - 暂存目录 `rootDirectory/.<id>.tmp`。
   - `screenshotFile` 会按文件头挑选可用截图：PNG / JPEG / RIFF+WEBP / GIF87a / GIF89a / BMP 之一才算有效；`hasCompleteFiles` 要求 `$id.json` 非空且存在有效截图。
@@ -302,7 +302,7 @@ stateDiagram-v2
 
 ### 6.2 文件与数据库的原子操作
 
-`SnapshotStore` 用 `mutationMutex: Mutex` 串行化所有变更，并把真实工作放在 `Dispatchers.IO`（JSON 解析放 `Dispatchers.Default`）。`save(snapshot, bitmap)` 走 `gkd-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotDirectoryTransaction.kt` 的 `commitSnapshotDirectory`：
+`SnapshotStore` 用 `mutationMutex: Mutex` 串行化所有变更，并把真实工作放在 `Dispatchers.IO`（JSON 解析放 `Dispatchers.Default`）。`save(snapshot, bitmap)` 走 `clean-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotDirectoryTransaction.kt` 的 `commitSnapshotDirectory`：
 
 ```mermaid
 sequenceDiagram
@@ -337,7 +337,7 @@ sequenceDiagram
 
 ### 7.1 `BackupFormat`：格式定义
 
-`gkd-app/src/main/kotlin/li/gkd/app/data/backup/BackupFormat.kt` 定义的是**压缩包内 `db.json` 的 JSON 契约**，与 Room schema 版本完全独立（源码注释：`Archive versions are independent of Room schema versions.`）。
+`clean-app/src/main/kotlin/li/gkd/app/data/backup/BackupFormat.kt` 定义的是**压缩包内 `db.json` 的 JSON 契约**，与 Room schema 版本完全独立（源码注释：`Archive versions are independent of Room schema versions.`）。
 
 - **没有魔数、没有校验和**：备份产物是 `ZipUtils.zipFiles` 生成的普通 zip，内部通过固定条目名识别内容（`store/`、`db.json`、`subscription/`）。`BackupFormat` 里不存在 header、magic、CRC 或签名字段。完整性只由 zip 结构本身与解析时的字段校验保证。
 - **版本**：`BackupDatabaseData.formatVersion` 默认 `2`；解码时读 `root["formatVersion"]?.jsonPrimitive?.int ?: 1`——**字段缺失即视为 V1 历史格式**；其他值走 `else -> error(UiStrings.backup_version_unsupported(version))`。
@@ -348,7 +348,7 @@ sequenceDiagram
 
 ### 7.2 `BackupArchiveReader`：读取与解析
 
-`gkd-app/src/main/kotlin/li/gkd/app/data/backup/BackupArchiveReader.kt` 只做两件事：
+`clean-app/src/main/kotlin/li/gkd/app/data/backup/BackupArchiveReader.kt` 只做两件事：
 
 1. `copyArchive(uri, archiveFile)`：`app.contentResolver.openInputStream(uri)`（失败抛 `IOException(UiStrings.backup_read_failed)`），8 KiB 缓冲循环拷贝，累计字节数超过 `MAX_ARCHIVE_BYTES = 64 MiB` 时抛 `IOException(UiStrings.backup_archive_too_large)`。
 2. `ZipUtils.unzipFile(archiveFile, destination)`：真正解压，附带条目数量/单条目/总量限制与路径逃逸防护（见 7.4）。
@@ -357,7 +357,7 @@ sequenceDiagram
 
 ### 7.3 `BackupManager`：导入导出的完整流程
 
-`gkd-app/src/main/kotlin/li/gkd/app/data/backup/BackupManager.kt` 是 `object`，用 `private val mutationMutex = Mutex()` 保证导入与导出互斥，两个入口都在 `withContext(Dispatchers.IO)` 内。
+`clean-app/src/main/kotlin/li/gkd/app/data/backup/BackupManager.kt` 是 `object`，用 `private val mutationMutex = Mutex()` 保证导入与导出互斥，两个入口都在 `withContext(Dispatchers.IO)` 内。
 
 **导出 `exportData(): File`**
 
@@ -417,7 +417,7 @@ flowchart TD
 
 ## 8. 应用信息
 
-`gkd-app/src/main/kotlin/li/gkd/app/data/appinfo/` 下的两个组件维护「已安装应用列表 + 图标缓存」，**它们不落盘**：没有对应数据库表或设置文件，全部是内存 `StateFlow`。
+`clean-app/src/main/kotlin/li/gkd/app/data/appinfo/` 下的两个组件维护「已安装应用列表 + 图标缓存」，**它们不落盘**：没有对应数据库表或设置文件，全部是内存 `StateFlow`。
 
 `AppInfoRepository`（`object`）：
 
@@ -452,7 +452,7 @@ flowchart TD
 | `FolderUtils.deleteSharedFile` / `withTemporaryZip` | `NonCancellable + Dispatchers.IO` | 清理已产生的临时产物属于「已接受的补偿」 |
 | `SubscriptionRepository.withBackupTransaction` | `withContext(Dispatchers.IO)` + `MutexState` + `NonCancellable` | 等待在途刷新仍可取消；拿到锁后的提交与补偿不可取消 |
 
-`MutexState`（`gkd-app/src/main/kotlin/li/gkd/app/util/MutexState.kt`）是「互斥锁 + 可观察占用状态」的组合：内部一个 `Mutex` 与 `MutableStateFlow<Boolean>`；`withStateLock` 会挂起等待，`tryWithStateLock` 在锁被占用时**立即返回 `false` 且不执行块**；两者都在 `finally` 中先把状态置回 `false` 再解锁。仓库中的使用点：`AppInfoRepository.updateAppMutex`（配合 `val updating = updateAppMutex.state`）、`SubscriptionRepository.updateMutex`（`val updating`、`val isBusy`，并在 `addOrModifyRemote`、`refresh` 中用返回值表达 `SubscriptionResult.Busy`）。
+`MutexState`（`clean-app/src/main/kotlin/li/gkd/app/util/MutexState.kt`）是「互斥锁 + 可观察占用状态」的组合：内部一个 `Mutex` 与 `MutableStateFlow<Boolean>`；`withStateLock` 会挂起等待，`tryWithStateLock` 在锁被占用时**立即返回 `false` 且不执行块**；两者都在 `finally` 中先把状态置回 `false` 再解锁。仓库中的使用点：`AppInfoRepository.updateAppMutex`（配合 `val updating = updateAppMutex.state`）、`SubscriptionRepository.updateMutex`（`val updating`、`val isBusy`，并在 `addOrModifyRemote`、`refresh` 中用返回值表达 `SubscriptionResult.Busy`）。
 
 `NonCancellable` 的使用边界在本层可以归纳为一条：**只覆盖「已经接受的提交」与「必须完成的补偿」**。符合该边界的调用点即上表中的 `SettingsRepository.withBackupRestore` 的 catch 分支、`SnapshotStore` 的三处提交/回滚/清理、`SnapshotDirectoryTransaction` 的重命名与发布、`SubscriptionRepository.withBackupTransaction` 的提交段、`FolderUtils` 的清理函数；而不符合边界的耗时行为（生成快照、解析 JSON、写文件、下载）都在 `ensureActive()` 或普通挂起点上保持可取消。
 
@@ -460,67 +460,67 @@ flowchart TD
 
 | 测试文件 | 保护的行为契约 |
 | --- | --- |
-| `gkd-db/src/jvmTest/kotlin/li/gkd/db/AppDbMigrationTest.kt` | ① `everyExportedSchemaMigratesToVersion16`：对 1..15 每个已导出 schema 建库后都能迁移并校验到 v16；② `migration15To16PreservesConfigurationsLogsAndLastVisitOrdering`：表/列重命名后配置、日志、最后访问时间与排序保持，且 `PRAGMA foreign_key_check` 通过、父表更新与级联删除仍生效；③ `migration14To15DeduplicatesWholeConfigurationsAndPreservesTheirMeaning`：同一业务键按 `MIN(id)` 保留整条记录、孤儿覆盖被丢弃、开关更新只作用于唯一行；④ `migration9To10PreservesRenamedForeignIds`：`subs_item_id → subs_id` 重命名保留取值；⑤ `migration10To11PreservesSnapshotDataOutsideDeletedColumns`：删除 3 个 snapshot 列后其余数据仍在；⑥ `databaseOpensVersion14AndRollsBackFailedTransaction`：v14 库可打开且写事务失败会回滚；⑦ `flowPagingAndListConverterWorkOnJvm`：`Flow`、`PagingSource` 与 `List<String>` 类型转换器在 JVM 上可用 |
-| `gkd-db/src/jvmTest/kotlin/li/gkd/db/SubscriptionConfigStoreTest.kt` | ① 显式应用/组设置不被默认值覆盖；② 重置开关与排除配置时保留其他作用域与页面级排除；③ 混合作用域写事务失败不留半成品；④ 重复导入保留本地业务键、只补缺失覆盖并返回被跳过的孤儿数；⑤ `SubsItem` upsert 保留覆盖、删除级联到 4 张配置表；⑥ `restore(checkpoint)` 恢复被改/被删的覆盖并移除多出来的行；⑦ `observe()` 发布的快照总是完整事务（跨两张组表）；⑧ 导入事务失败回滚全部配置表；⑨ 40 个并发 `updateGlobalGroupConfig` 不丢任何 `exclude` 追加；⑩ 组开关变更保留最新排除配置、失败的编辑不改变已有值；⑪ 导入失败不会回滚「等待同一事务的普通写入」 |
-| `gkd-app/src/test/kotlin/li/gkd/app/data/settings/SettingsRepositoryTest.kt` | ① 显式 update 改内存并可跨 Repository 重建读回；② 200 个并发 `incrementActionCount` 最终内存与文件一致；③ 一次落盘失败后写循环仍能继续工作；④ 恢复失败时保留后续编辑与自增、且不保留导入值；⑤ 恢复成功后保留导入值与后续命令，并能再次开始新的恢复；⑥ 恢复被取消时落盘回滚值并保留挂起期间的更新；⑦ 目标路径是目录导致写失败时，数据库工作**根本不会开始**且写循环可恢复 |
-| `gkd-app/src/test/kotlin/li/gkd/app/data/snapshot/SnapshotRepositoryTest.kt` | ① 截图未变时才记录上传 id；② 截图 `lastModified` 变化后不记录；③ 数据库删除失败时把快照目录改回原位、文件仍在（用 `SnapshotStore` + `FakeSnapshotDao` 注入删除失败）；④ 数据库删除成功后目录被彻底删除 |
-| `gkd-app/src/test/kotlin/li/gkd/app/data/backup/BackupFormatTest.kt` | ① V1 载荷按 `MIN(id)` 拆分与去重（含 `enable` 为 null 的记录）；② 导入后 UI 策略与运行期汇总得到相同的生效开关；③ 重新导出为 V2（含 `formatVersion":2`、不再有 `subsConfigs`、null 值保留）且往返等价；④ 表重命名前的 V2 导出字段名与取值不变（Room 表名不得改变归档契约）；⑤ V1 缺失集合与可选组字段使用原始默认值；⑥ 不支持的版本抛 `IllegalStateException`、未知 `type` 抛 `IllegalArgumentException`（在导入开始前失败） |
-| `gkd-app/src/test/kotlin/li/gkd/app/util/ZipUtilsTest.kt` | ① 拒绝越出目标目录的条目（`../escaped.txt`）且不产生文件；② 按**实际**读取字节数执行 `maxEntryBytes` 限制；③ 合法条目能正确解压 |
-| `gkd-app/src/test/kotlin/li/gkd/app/util/MutexStateTest.kt` | ① 持锁期间 `tryWithStateLock` 原子地跳过（返回 `false` 且块未执行）；② `withStateLock` 在块抛错后仍释放锁并复位 `state` |
+| `clean-db/src/jvmTest/kotlin/li/gkd/db/AppDbMigrationTest.kt` | ① `everyExportedSchemaMigratesToVersion16`：对 1..15 每个已导出 schema 建库后都能迁移并校验到 v16；② `migration15To16PreservesConfigurationsLogsAndLastVisitOrdering`：表/列重命名后配置、日志、最后访问时间与排序保持，且 `PRAGMA foreign_key_check` 通过、父表更新与级联删除仍生效；③ `migration14To15DeduplicatesWholeConfigurationsAndPreservesTheirMeaning`：同一业务键按 `MIN(id)` 保留整条记录、孤儿覆盖被丢弃、开关更新只作用于唯一行；④ `migration9To10PreservesRenamedForeignIds`：`subs_item_id → subs_id` 重命名保留取值；⑤ `migration10To11PreservesSnapshotDataOutsideDeletedColumns`：删除 3 个 snapshot 列后其余数据仍在；⑥ `databaseOpensVersion14AndRollsBackFailedTransaction`：v14 库可打开且写事务失败会回滚；⑦ `flowPagingAndListConverterWorkOnJvm`：`Flow`、`PagingSource` 与 `List<String>` 类型转换器在 JVM 上可用 |
+| `clean-db/src/jvmTest/kotlin/li/gkd/db/SubscriptionConfigStoreTest.kt` | ① 显式应用/组设置不被默认值覆盖；② 重置开关与排除配置时保留其他作用域与页面级排除；③ 混合作用域写事务失败不留半成品；④ 重复导入保留本地业务键、只补缺失覆盖并返回被跳过的孤儿数；⑤ `SubsItem` upsert 保留覆盖、删除级联到 4 张配置表；⑥ `restore(checkpoint)` 恢复被改/被删的覆盖并移除多出来的行；⑦ `observe()` 发布的快照总是完整事务（跨两张组表）；⑧ 导入事务失败回滚全部配置表；⑨ 40 个并发 `updateGlobalGroupConfig` 不丢任何 `exclude` 追加；⑩ 组开关变更保留最新排除配置、失败的编辑不改变已有值；⑪ 导入失败不会回滚「等待同一事务的普通写入」 |
+| `clean-app/src/test/kotlin/li/gkd/app/data/settings/SettingsRepositoryTest.kt` | ① 显式 update 改内存并可跨 Repository 重建读回；② 200 个并发 `incrementActionCount` 最终内存与文件一致；③ 一次落盘失败后写循环仍能继续工作；④ 恢复失败时保留后续编辑与自增、且不保留导入值；⑤ 恢复成功后保留导入值与后续命令，并能再次开始新的恢复；⑥ 恢复被取消时落盘回滚值并保留挂起期间的更新；⑦ 目标路径是目录导致写失败时，数据库工作**根本不会开始**且写循环可恢复 |
+| `clean-app/src/test/kotlin/li/gkd/app/data/snapshot/SnapshotRepositoryTest.kt` | ① 截图未变时才记录上传 id；② 截图 `lastModified` 变化后不记录；③ 数据库删除失败时把快照目录改回原位、文件仍在（用 `SnapshotStore` + `FakeSnapshotDao` 注入删除失败）；④ 数据库删除成功后目录被彻底删除 |
+| `clean-app/src/test/kotlin/li/gkd/app/data/backup/BackupFormatTest.kt` | ① V1 载荷按 `MIN(id)` 拆分与去重（含 `enable` 为 null 的记录）；② 导入后 UI 策略与运行期汇总得到相同的生效开关；③ 重新导出为 V2（含 `formatVersion":2`、不再有 `subsConfigs`、null 值保留）且往返等价；④ 表重命名前的 V2 导出字段名与取值不变（Room 表名不得改变归档契约）；⑤ V1 缺失集合与可选组字段使用原始默认值；⑥ 不支持的版本抛 `IllegalStateException`、未知 `type` 抛 `IllegalArgumentException`（在导入开始前失败） |
+| `clean-app/src/test/kotlin/li/gkd/app/util/ZipUtilsTest.kt` | ① 拒绝越出目标目录的条目（`../escaped.txt`）且不产生文件；② 按**实际**读取字节数执行 `maxEntryBytes` 限制；③ 合法条目能正确解压 |
+| `clean-app/src/test/kotlin/li/gkd/app/util/MutexStateTest.kt` | ① 持锁期间 `tryWithStateLock` 原子地跳过（返回 `false` 且块未执行）；② `withStateLock` 在块抛错后仍释放锁并复位 `state` |
 
 ## 关键文件索引
 
 | 仓库相对路径 | 职责 |
 | --- | --- |
-| `gkd-db/build.gradle.kts` | `gkd-db` KMP 目标（android/jvm）、依赖、`room3 { schemaDirectory }`、KSP 处理器与测试的 `room.schemaDirectory` 系统属性 |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/AppDb.kt` | `@Database(version = 16)` 实体与自动迁移清单、`AppDbConstructor`、`Migration9To10Spec`、`Migration10To11Spec`、`DbConverters` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/Db.kt` | `Db` 单例：`initialize`、懒加载 database、10 个 DAO getter、`subscriptionConfigStore`、`withTransaction` |
-| `gkd-db/src/androidMain/kotlin/li/gkd/db/Db.android.kt` | Android 侧 `Db.initialize(context, databasePath)`：Room3 builder、`AndroidSQLiteDriver`、`Dispatchers.IO`、注册 `Migration14To15` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubscriptionConfigStore.kt` | `SubscriptionConfigSnapshot`、订阅配置的写事务方法（`setAppEnabled`、`updateAppGroupConfig`、`updateGlobalGroupConfig`）、`observe`/`capture`/`merge`/`restore` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsItem.kt` | `SubsItem` 实体 + `SubsItemDao` + `LOCAL_SUBS_ID`/`LOCAL_HTTP_SUBS_ID` 常量 |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/Snapshot.kt` | `Snapshot` 实体 + `SnapshotDao`（含 `markUploadedIfPending`） |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/BaseSnapshot.kt` | 快照的公共字段接口 |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsGroupConfig.kt` | `SubsGroupConfig` sealed interface 与 `withEnable`/`withExclude` 扩展 |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsAppGroupConfig.kt` | 应用内规则组覆盖实体 + DAO |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsGlobalGroupConfig.kt` | 全局规则组覆盖实体 + DAO |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsCategoryConfig.kt` | 分类开关实体 + DAO |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsAppConfig.kt` | 应用级开关实体 + DAO |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/ActionLog.kt` | 规则命中日志实体 + `ActionLogDao` + `ActionLogSpec`（删除 `click_log`） |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/ActivityLog.kt` | 前台 Activity 日志实体 + `ActivityLogDao` + `ActivityLogV2Spec` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/A11yEventLog.kt` | 无障碍事件日志实体 + `A11yEventLogDao` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/AppLastVisit.kt` | 应用最后使用时间实体 + `AppLastVisitDao` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/RuleGroupType.kt` | 持久化协议常量 `App = 2` / `Global = 3` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/Migration14To15.kt` | 手写 14→15 迁移：建两张组表、重建两张配置表、删 `subs_config` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/Migration15To16Spec.kt` | 15→16 的 6 次 `@RenameTable` 与 3 次 `@RenameColumn` |
-| `gkd-db/schemas/li.gkd.db.AppDb/*.json` | v1..v16 schema 快照，迁移测试与版本校验的事实依据 |
-| `gkd-db/src/jvmTest/kotlin/li/gkd/db/AppDbMigrationTest.kt` | 全版本迁移、重命名/去重语义、事务回滚、JVM 上的 Flow/Paging/转换器契约 |
-| `gkd-db/src/jvmTest/kotlin/li/gkd/db/SubscriptionConfigStoreTest.kt` | 订阅配置并发、级联、导入/恢复与事务完整性契约 |
-| `gkd-app/src/main/kotlin/li/gkd/app/store/AppStore.kt` | 设置门面：只读 StateFlow、update/replace 透传、派生列表、自动化开关同步、备份入口 |
-| `gkd-app/src/main/kotlin/li/gkd/app/store/FileStateStore.kt` | `createTextFlow`/`createJsonFlow`：临时文件 + 原子重命名的轻量文件状态 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/settings/SettingsStore.kt` | `@Serializable` 设置数据类与 `useA11y`/`useAutomation` |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/settings/SettingsRepository.kt` | `PersistedValue` 写队列/版本号/`awaitPersistence`、5 个设置文件、`withBackupRestore` 回滚语义 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/backup/BackupFormat.kt` | 备份 JSON 契约：V2 载荷、V1 兼容转换、`encode`/`decode` |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/backup/BackupArchiveReader.kt` | 从 `Uri` 拷贝归档（64 MiB 上限）并解压到临时目录 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/backup/BackupManager.kt` | 导出/导入编排、`prepareBackup` 校验、`applyPreparedBackup` 三层回滚 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/snapshot/SnapshotRepository.kt` | `SnapshotRepository`/`SnapshotStore`：快照文件与数据库行的原子操作、上传归档 |
-| `gkd-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotFileLayout.kt` | 正式目录/暂存目录布局与截图文件有效性判定 |
-| `gkd-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotDirectoryTransaction.kt` | `commitSnapshotDirectory`：暂存写入 → 重命名 → 数据库发布的不可取消提交区间 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/ComplexSnapshot.kt` | 快照文件载荷（含 `nodes`/`device`/`appInfo`）与 `toSnapshot()` 投影 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/appinfo/AppInfoRepository.kt` | 已安装应用与图标的内存缓存、多用户回退、增量刷新与去抖 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/appinfo/AppChangeMonitor.kt` | 包变更广播 + `LauncherApps.Callback` 双通道监听 |
-| `gkd-app/src/main/kotlin/li/gkd/app/core/state/Loadable.kt` | `Loading`/`Ready`/`Failure` 状态机，禁止用空集合伪装初始值 |
-| `gkd-app/src/main/kotlin/li/gkd/app/util/FolderUtils.kt` | 目录布局（db/store/subscription/snapshot/log/private-store/shared）、临时目录、诊断日志包 |
-| `gkd-app/src/main/kotlin/li/gkd/app/util/FolderExt.kt` | `File.autoMk()` 目录按需创建 |
-| `gkd-app/src/main/kotlin/li/gkd/app/util/ZipUtils.kt` | `zipFiles`/`unzipFile` 与解压限制、路径逃逸防护 |
-| `gkd-app/src/main/kotlin/li/gkd/app/util/Option.kt` | 持久化的枚举型设置值（`AppSortOption`、`UpdateTimeOption`、`AutomatorModeOption` 等） |
-| `gkd-app/src/main/kotlin/li/gkd/app/util/MutexState.kt` | 互斥锁 + 可观察占用状态的 `withStateLock`/`tryWithStateLock` |
-| `gkd-app/src/main/kotlin/li/gkd/app/util/FlowExt.kt` | `mapState`：`StateFlow` 派生 |
-| `gkd-app/src/main/kotlin/li/gkd/app/util/Singleton.kt` | `json`/`keepNullJson` 序列化实例（备份、快照、订阅文件共用） |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionFileStore.kt` | 订阅文件事实源：`AtomicFile` 写入、`readBytes`/`restore`/`delete` |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionPersistence.kt` | 订阅文件与数据库的补偿一致性（`save`/`delete`/`cleanupConfigs`） |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionRepository.kt` | 订阅用例编排、写锁、`withBackupTransaction` 提交与补偿边界 |
-| `gkd-app/src/test/kotlin/li/gkd/app/data/settings/SettingsRepositoryTest.kt` | 设置写入、并发、恢复回滚与取消语义契约 |
-| `gkd-app/src/test/kotlin/li/gkd/app/data/snapshot/SnapshotRepositoryTest.kt` | 快照上传标记与删除失败回滚契约 |
-| `gkd-app/src/test/kotlin/li/gkd/app/data/backup/BackupFormatTest.kt` | 备份 V1/V2 兼容与字段名冻结契约 |
-| `gkd-app/src/test/kotlin/li/gkd/app/util/ZipUtilsTest.kt` | ZIP 路径逃逸与解压大小限制契约 |
-| `gkd-app/src/test/kotlin/li/gkd/app/util/MutexStateTest.kt` | `MutexState` 的跳过与解锁契约 |
+| `clean-db/build.gradle.kts` | `clean-db` KMP 目标（android/jvm）、依赖、`room3 { schemaDirectory }`、KSP 处理器与测试的 `room.schemaDirectory` 系统属性 |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/AppDb.kt` | `@Database(version = 16)` 实体与自动迁移清单、`AppDbConstructor`、`Migration9To10Spec`、`Migration10To11Spec`、`DbConverters` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/Db.kt` | `Db` 单例：`initialize`、懒加载 database、10 个 DAO getter、`subscriptionConfigStore`、`withTransaction` |
+| `clean-db/src/androidMain/kotlin/li/gkd/db/Db.android.kt` | Android 侧 `Db.initialize(context, databasePath)`：Room3 builder、`AndroidSQLiteDriver`、`Dispatchers.IO`、注册 `Migration14To15` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubscriptionConfigStore.kt` | `SubscriptionConfigSnapshot`、订阅配置的写事务方法（`setAppEnabled`、`updateAppGroupConfig`、`updateGlobalGroupConfig`）、`observe`/`capture`/`merge`/`restore` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsItem.kt` | `SubsItem` 实体 + `SubsItemDao` + `LOCAL_SUBS_ID`/`LOCAL_HTTP_SUBS_ID` 常量 |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/Snapshot.kt` | `Snapshot` 实体 + `SnapshotDao`（含 `markUploadedIfPending`） |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/BaseSnapshot.kt` | 快照的公共字段接口 |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsGroupConfig.kt` | `SubsGroupConfig` sealed interface 与 `withEnable`/`withExclude` 扩展 |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsAppGroupConfig.kt` | 应用内规则组覆盖实体 + DAO |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsGlobalGroupConfig.kt` | 全局规则组覆盖实体 + DAO |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsCategoryConfig.kt` | 分类开关实体 + DAO |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsAppConfig.kt` | 应用级开关实体 + DAO |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/ActionLog.kt` | 规则命中日志实体 + `ActionLogDao` + `ActionLogSpec`（删除 `click_log`） |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/ActivityLog.kt` | 前台 Activity 日志实体 + `ActivityLogDao` + `ActivityLogV2Spec` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/A11yEventLog.kt` | 无障碍事件日志实体 + `A11yEventLogDao` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/AppLastVisit.kt` | 应用最后使用时间实体 + `AppLastVisitDao` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/RuleGroupType.kt` | 持久化协议常量 `App = 2` / `Global = 3` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/Migration14To15.kt` | 手写 14→15 迁移：建两张组表、重建两张配置表、删 `subs_config` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/Migration15To16Spec.kt` | 15→16 的 6 次 `@RenameTable` 与 3 次 `@RenameColumn` |
+| `clean-db/schemas/li.gkd.db.AppDb/*.json` | v1..v16 schema 快照，迁移测试与版本校验的事实依据 |
+| `clean-db/src/jvmTest/kotlin/li/gkd/db/AppDbMigrationTest.kt` | 全版本迁移、重命名/去重语义、事务回滚、JVM 上的 Flow/Paging/转换器契约 |
+| `clean-db/src/jvmTest/kotlin/li/gkd/db/SubscriptionConfigStoreTest.kt` | 订阅配置并发、级联、导入/恢复与事务完整性契约 |
+| `clean-app/src/main/kotlin/li/gkd/app/store/AppStore.kt` | 设置门面：只读 StateFlow、update/replace 透传、派生列表、自动化开关同步、备份入口 |
+| `clean-app/src/main/kotlin/li/gkd/app/store/FileStateStore.kt` | `createTextFlow`/`createJsonFlow`：临时文件 + 原子重命名的轻量文件状态 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/settings/SettingsStore.kt` | `@Serializable` 设置数据类与 `useA11y`/`useAutomation` |
+| `clean-app/src/main/kotlin/li/gkd/app/data/settings/SettingsRepository.kt` | `PersistedValue` 写队列/版本号/`awaitPersistence`、5 个设置文件、`withBackupRestore` 回滚语义 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/backup/BackupFormat.kt` | 备份 JSON 契约：V2 载荷、V1 兼容转换、`encode`/`decode` |
+| `clean-app/src/main/kotlin/li/gkd/app/data/backup/BackupArchiveReader.kt` | 从 `Uri` 拷贝归档（64 MiB 上限）并解压到临时目录 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/backup/BackupManager.kt` | 导出/导入编排、`prepareBackup` 校验、`applyPreparedBackup` 三层回滚 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/snapshot/SnapshotRepository.kt` | `SnapshotRepository`/`SnapshotStore`：快照文件与数据库行的原子操作、上传归档 |
+| `clean-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotFileLayout.kt` | 正式目录/暂存目录布局与截图文件有效性判定 |
+| `clean-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotDirectoryTransaction.kt` | `commitSnapshotDirectory`：暂存写入 → 重命名 → 数据库发布的不可取消提交区间 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/ComplexSnapshot.kt` | 快照文件载荷（含 `nodes`/`device`/`appInfo`）与 `toSnapshot()` 投影 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/appinfo/AppInfoRepository.kt` | 已安装应用与图标的内存缓存、多用户回退、增量刷新与去抖 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/appinfo/AppChangeMonitor.kt` | 包变更广播 + `LauncherApps.Callback` 双通道监听 |
+| `clean-app/src/main/kotlin/li/gkd/app/core/state/Loadable.kt` | `Loading`/`Ready`/`Failure` 状态机，禁止用空集合伪装初始值 |
+| `clean-app/src/main/kotlin/li/gkd/app/util/FolderUtils.kt` | 目录布局（db/store/subscription/snapshot/log/private-store/shared）、临时目录、诊断日志包 |
+| `clean-app/src/main/kotlin/li/gkd/app/util/FolderExt.kt` | `File.autoMk()` 目录按需创建 |
+| `clean-app/src/main/kotlin/li/gkd/app/util/ZipUtils.kt` | `zipFiles`/`unzipFile` 与解压限制、路径逃逸防护 |
+| `clean-app/src/main/kotlin/li/gkd/app/util/Option.kt` | 持久化的枚举型设置值（`AppSortOption`、`UpdateTimeOption`、`AutomatorModeOption` 等） |
+| `clean-app/src/main/kotlin/li/gkd/app/util/MutexState.kt` | 互斥锁 + 可观察占用状态的 `withStateLock`/`tryWithStateLock` |
+| `clean-app/src/main/kotlin/li/gkd/app/util/FlowExt.kt` | `mapState`：`StateFlow` 派生 |
+| `clean-app/src/main/kotlin/li/gkd/app/util/Singleton.kt` | `json`/`keepNullJson` 序列化实例（备份、快照、订阅文件共用） |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionFileStore.kt` | 订阅文件事实源：`AtomicFile` 写入、`readBytes`/`restore`/`delete` |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionPersistence.kt` | 订阅文件与数据库的补偿一致性（`save`/`delete`/`cleanupConfigs`） |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionRepository.kt` | 订阅用例编排、写锁、`withBackupTransaction` 提交与补偿边界 |
+| `clean-app/src/test/kotlin/li/gkd/app/data/settings/SettingsRepositoryTest.kt` | 设置写入、并发、恢复回滚与取消语义契约 |
+| `clean-app/src/test/kotlin/li/gkd/app/data/snapshot/SnapshotRepositoryTest.kt` | 快照上传标记与删除失败回滚契约 |
+| `clean-app/src/test/kotlin/li/gkd/app/data/backup/BackupFormatTest.kt` | 备份 V1/V2 兼容与字段名冻结契约 |
+| `clean-app/src/test/kotlin/li/gkd/app/util/ZipUtilsTest.kt` | ZIP 路径逃逸与解压大小限制契约 |
+| `clean-app/src/test/kotlin/li/gkd/app/util/MutexStateTest.kt` | `MutexState` 的跳过与解锁契约 |

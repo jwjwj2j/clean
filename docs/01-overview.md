@@ -39,7 +39,7 @@ GKD 本身**不内置任何规则**，规则来自：
 @[vid="menu"] < [vid="menu_container"] - [vid="dot_text_layout"] > [text^="广告"]
 ```
 
-选择器被实现为独立的多平台模块 `gkd-selector`，同时编译为 Android/JVM 可用的 Kotlin 库和发布到 npm 的 `@gkd-kit/selector` 包。详见 [03-selector-engine.md](03-selector-engine.md)。
+选择器被实现为独立的多平台模块 `clean-selector`，同时编译为 Android/JVM 可用的 Kotlin 库和发布到 npm 的 `@gkd-kit/selector` 包。详见 [03-selector-engine.md](03-selector-engine.md)。
 
 ### 3.2 订阅规则
 
@@ -67,12 +67,12 @@ GKD 的自动化能力依赖以下 Android 能力中的一种或多种，具体�
 
 | 项 | 值 | 来源 |
 | --- | --- | --- |
-| 应用 ID | `li.songe.gkd`（debug 变体为 `li.songe.gkd.debug`） | `gkd-app/build.gradle.kts` |
+| 应用 ID | `li.songe.gkd`（debug 变体为 `li.songe.gkd.debug`） | `clean-app/build.gradle.kts` |
 | namespace | `li.gkd.app` | 同上 |
 | minSdk | 26（Android 8.0） | 根 `build.gradle.kts` `Cfg` |
 | compileSdk / targetSdk | 37 | 同上 |
 | buildToolsVersion | `37.0.0` | 同上 |
-| ABI | `arm64-v8a`、`x86_64` | `gkd-app/build.gradle.kts` |
+| ABI | `arm64-v8a`、`x86_64` | `clean-app/build.gradle.kts` |
 | 渠道 | `gkd`（默认）、`play` | productFlavors |
 | 许可 | GPL-3.0-only | `LICENSE` |
 
@@ -84,17 +84,17 @@ GKD 的自动化能力依赖以下 Android 能力中的一种或多种，具体�
 
 ```text
 gkd-main/
-├── gkd-app/            Android 应用（Kotlin + Jetpack Compose），379 个 .kt
-├── gkd-db/             Room 数据库多平台模块，21 个 .kt + 16 份 schema
-├── gkd-selector/       选择器引擎（Kotlin Multiplatform + npm 包），54 个 .kt
-├── gkd-hidden-api/     Android 隐藏 API 的 Java 存根（29 个 .java）
+├── clean-app/            Android 应用（Kotlin + Jetpack Compose），379 个 .kt
+├── clean-db/             Room 数据库多平台模块，21 个 .kt + 16 份 schema
+├── clean-selector/       选择器引擎（Kotlin Multiplatform + npm 包），54 个 .kt
+├── clean-hidden-api/     Android 隐藏 API 的 Java 存根（29 个 .java）
 ├── buildSrc/           Gradle 约定插件与代码生成任务
 ├── gradle/             libs.versions.toml 版本目录 + wrapper
 ├── docs/               本套项目文档
 ├── AGENTS.md           仓库级硬性编码约定（必读）
-├── gkd-app/ARCHITECTURE.md   gkd-app 内部分层与写入边界
-├── gkd-app/STRINGS.md        UI 文案维护规范
-├── gkd-selector/README.md    选择器包的公开 API 文档
+├── clean-app/ARCHITECTURE.md   clean-app 内部分层与写入边界
+├── clean-app/STRINGS.md        UI 文案维护规范
+├── clean-selector/README.md    选择器包的公开 API 文档
 ├── CHANGELOG.md        更新内容（Release body）
 └── .github/workflows/  CI：构建 APK、发布 Release、发布 npm 包
 ```
@@ -103,13 +103,13 @@ gkd-main/
 
 | 模块 | Kotlin 文件 | 说明 |
 | --- | --- | --- |
-| `gkd-app/src/main` | 349 | 应用主体 |
-| `gkd-app/src/test` | 30 | JVM 单元测试（无 `androidTest` 目录） |
-| `gkd-selector/src` | 54 | 含 12 个测试文件 |
-| `gkd-db/src` | 21 | 含 2 个 jvmTest |
+| `clean-app/src/main` | 349 | 应用主体 |
+| `clean-app/src/test` | 30 | JVM 单元测试（无 `androidTest` 目录） |
+| `clean-selector/src` | 54 | 含 12 个测试文件 |
+| `clean-db/src` | 21 | 含 2 个 jvmTest |
 | `buildSrc/src` | 8 | 构建逻辑 |
 
-`gkd-app` 内部包规模（文件数）：
+`clean-app` 内部包规模（文件数）：
 
 | 包 | 文件 | 职责 |
 | --- | --- | --- |

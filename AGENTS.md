@@ -12,7 +12,7 @@
 
 ## Kotlin 可见性
 
-- `gkd-app` 模块内禁止使用 `internal` 关键字；由于没有其他模块会引用 `gkd-app` 模块，对外可见的声明应省略可见性修饰符（使用 Kotlin 默认的 `public`），仅在需要收窄作用域时使用 `private`。
+- `clean-app` 模块内禁止使用 `internal` 关键字；由于没有其他模块会引用 `clean-app` 模块，对外可见的声明应省略可见性修饰符（使用 Kotlin 默认的 `public`），仅在需要收窄作用域时使用 `private`。
 - 与公开属性直接一一对应、仅用于收窄可见性或可变性的 `_xxx` backing property，必须改用 Explicit Backing Fields；不禁止不存在这种直接对应关系的普通私有字段、缓存或生成代码风格命名。未使用的 Lambda 参数占位符 `_` 不受此限制。
 
 ## Kotlin 静态初始化
@@ -21,7 +21,7 @@
 
 ## Kotlin 工具声明
 
-- `gkd-app` 的 `util` 包中，新增或修改的跨文件工具函数和共享工具属性必须声明为与文件名同名的 `object` 成员；扩展函数、类型声明以及仅供文件内部使用的 `private` 实现可以保留为顶级声明。
+- `clean-app` 的 `util` 包中，新增或修改的跨文件工具函数和共享工具属性必须声明为与文件名同名的 `object` 成员；扩展函数、类型声明以及仅供文件内部使用的 `private` 实现可以保留为顶级声明。
 - `XxxExt.kt` 文件只允许放置扩展声明；普通工具函数和共享工具属性必须移入对应的 `XxxUtils.kt` 或职责明确的同名 `object`。
 - Compose 页面、组件及其私有 Composable 不适用上述工具声明规则。
 

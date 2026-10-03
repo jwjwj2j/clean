@@ -13,7 +13,7 @@
 | KSP | 2.3.12 | 同上 |
 | Node.js | `devEngines` 声明 26.9.0（`onFail: warn`） | `package.json` |
 | pnpm | `devEngines` 声明 12.5.1（`onFail: error`） | `package.json` |
-| 选择器 npm 包运行要求 | Node.js ≥ 22 或支持 WebAssembly GC 的浏览器 | `gkd-selector/package.json`、`gkd-selector/README.md` |
+| 选择器 npm 包运行要求 | Node.js ≥ 22 或支持 WebAssembly GC 的浏览器 | `clean-selector/package.json`、`clean-selector/README.md` |
 
 `gradle/wrapper/gradle-wrapper.properties` 的 `distributionUrl` 指向本地文件 `file:///E:/anzhuang/gradle-9.7.1-bin.zip`，这是随仓库分发的环境定制；在标准克隆中应还原为官方 distribution URL。
 
@@ -79,12 +79,12 @@ libs.versions.updates.toml
 | 模块 | 插件 | 关键配置 |
 | --- | --- | --- |
 | 根项目 | `google.ksp`、`android.library`、`android.kotlin.multiplatform.library`、`android.application`、`androidx.room`、`kotlin.serialization`、`kotlin.multiplatform`、`kotlin.parcelize`、`kotlin.compose`、`remap`、`codeorigin`（均 `apply false`）+ `littlerobots.version` | `Cfg`、全局编译参数、子项目 SDK |
-| `gkd-app` | `android.application`、`kotlin.parcelize`、`kotlin.serialization`、`kotlin.compose`、`remap`、`codeorigin` | 见第 4 节 |
-| `gkd-db` | `kotlin.multiplatform`、`android.kotlin.multiplatform.library`、`androidx.room`、`kotlin.serialization`、`google.ksp` | targets `android` + `jvm`；`room3 { schemaDirectory("$projectDir/schemas") }`；`kspAndroid`/`kspJvm` 使用 Room compiler |
-| `gkd-selector` | `kotlin.multiplatform`、`kotlin.serialization` | `explicitApi()`；targets `jvm` + `js(es2015, ESM, nodejs, 生成 TS 声明)` |
-| `gkd-hidden-api` | `android.library` | namespace `hidden.api`；`compileOnly` remap-annotation；`annotationProcessor` remap-processor |
+| `clean-app` | `android.application`、`kotlin.parcelize`、`kotlin.serialization`、`kotlin.compose`、`remap`、`codeorigin` | 见第 4 节 |
+| `clean-db` | `kotlin.multiplatform`、`android.kotlin.multiplatform.library`、`androidx.room`、`kotlin.serialization`、`google.ksp` | targets `android` + `jvm`；`room3 { schemaDirectory("$projectDir/schemas") }`；`kspAndroid`/`kspJvm` 使用 Room compiler |
+| `clean-selector` | `kotlin.multiplatform`、`kotlin.serialization` | `explicitApi()`；targets `jvm` + `js(es2015, ESM, nodejs, 生成 TS 声明)` |
+| `clean-hidden-api` | `android.library` | namespace `hidden.api`；`compileOnly` remap-annotation；`annotationProcessor` remap-processor |
 
-`gkd-db` 的测试任务会把 schema 目录作为系统属性传给测试 JVM，供 Room 迁移测试使用：
+`clean-db` 的测试任务会把 schema 目录作为系统属性传给测试 JVM，供 Room 迁移测试使用：
 
 ```kotlin
 tasks.withType<Test>().configureEach {
@@ -92,7 +92,7 @@ tasks.withType<Test>().configureEach {
 }
 ```
 
-## 4. gkd-app 变体与签名
+## 4. clean-app 变体与签名
 
 ### 4.1 基本信息
 
@@ -108,7 +108,7 @@ tasks.withType<Test>().configureEach {
 | `packaging.jniLibs.useLegacyPackaging` | true（priv-kit 要求） |
 | `dependenciesInfo.includeInApk/Bundle` | false（配合 HiddenApiBypass） |
 
-> `localeFilters` 只是资源裁剪范围；项目当前**只维护一套文案**，不做运行时语言切换（见 `gkd-app/STRINGS.md`）。
+> `localeFilters` 只是资源裁剪范围；项目当前**只维护一套文案**，不做运行时语言切换（见 `clean-app/STRINGS.md`）。
 
 ### 4.2 渠道（productFlavors，dimension `channel`）
 
@@ -172,7 +172,7 @@ tasks.withType<Test>().configureEach {
 
 ## 6. UI 文案代码生成
 
-`generateUiStrings` 由 `gkd-app/build.gradle.kts` 注册，并通过 `variant.sources.java?.addGeneratedSourceDirectory(...)` 接入每个变体：
+`generateUiStrings` 由 `clean-app/build.gradle.kts` 注册，并通过 `variant.sources.java?.addGeneratedSourceDirectory(...)` 接入每个变体：
 
 ```kotlin
 val generateUiStrings = tasks.register<GenerateUiStringsTask>("generateUiStrings") {
@@ -193,22 +193,22 @@ val generateUiStrings = tasks.register<GenerateUiStringsTask>("generateUiStrings
 
 ```shell
 # 常规开发渠道 release APK
-./gradlew :gkd-app:assembleGkdRelease
+./gradlew :clean-app:assembleGkdRelease
 
 # Play 渠道 AAB
-./gradlew :gkd-app:bundlePlayRelease
+./gradlew :clean-app:bundlePlayRelease
 
 # 单元测试
-./gradlew :gkd-app:test
-./gradlew :gkd-db:jvmTest
-./gradlew :gkd-selector:jvmTest
+./gradlew :clean-app:test
+./gradlew :clean-db:jvmTest
+./gradlew :clean-selector:jvmTest
 
 # 仅编译（快速校验）
-./gradlew :gkd-app:compileGkdDebugKotlin
+./gradlew :clean-app:compileGkdDebugKotlin
 
 # 选择器：本地构建 + 全量测试（含 TS 检查与 Node 测试）
-pnpm --dir gkd-selector build
-pnpm --dir gkd-selector test
+pnpm --dir clean-selector build
+pnpm --dir clean-selector test
 
 # 拉取已发布的 dist（不需要 Java/Gradle/Kotlin）
 pnpm fetch-selector-dist
@@ -220,7 +220,7 @@ pnpm fetch-selector-dist
 
 | 工作流 | 触发 | 内容 |
 | --- | --- | --- |
-| `Build-Apk.yml` | `workflow_dispatch`；push 到任意分支（忽略 `LICENSE`、`*.md`、`.github/**`），且提交信息不以 `chore:` / `chore(` 开头 | JDK 21 → 写入 `gkd.jks` → `:gkd-app:assembleGkdRelease`（`GKD_RENAME_APK_FLAG=1`）→ 上传 APK 与 `gkd-app/build/outputs` |
+| `Build-Apk.yml` | `workflow_dispatch`；push 到任意分支（忽略 `LICENSE`、`*.md`、`.github/**`），且提交信息不以 `chore:` / `chore(` 开头 | JDK 21 → 写入 `gkd.jks` → `:clean-app:assembleGkdRelease`（`GKD_RENAME_APK_FLAG=1`）→ 上传 APK 与 `clean-app/build/outputs` |
 | `Build-Release.yml` | push tag `v*` | 写入 gkd 与 play 两个 keystore → `assembleGkdRelease` + `bundlePlayRelease` → 打包 `gkd-<tag>.apk` 与 `outputs-<tag>.zip` → 创建 GitHub Release，body 取 `CHANGELOG.md`，tag 名含 `beta` 时标记为 prerelease |
 | `Publish-Selector.yml` | push tag `@gkd-kit/selector@*.*.*` | 校验 tag → `pnpm -F @gkd-kit/selector publish --no-git-checks --fail-if-no-match` |
 
@@ -231,7 +231,7 @@ CI 需要的 Secrets：`GRADLE_CACHE_ENCRYPTION_KEY`、`GKD_STORE_FILE_BASE64`�
 ### 9.1 应用 Release
 
 1. 更新 `CHANGELOG.md`（将作为 Release body）。
-2. 如需变更版本，修改 `gkd-app/build.gradle.kts` 的 `versionCode` / `versionName`。
+2. 如需变更版本，修改 `clean-app/build.gradle.kts` 的 `versionCode` / `versionName`。
 3. 打 tag 并推送：`git tag vX.Y.Z && git push origin vX.Y.Z`（beta 版本 tag 名包含 `beta`）。
 4. `Build-Release.yml` 自动构建并创建 Release。
 
@@ -246,23 +246,23 @@ CI 需要的 Secrets：`GRADLE_CACHE_ENCRYPTION_KEY`、`GKD_STORE_FILE_BASE64`�
 
 每次发布：
 
-1. 更新 `gkd-selector/package.json` 的 version 为正式 `x.y.z`（当前为 `0.6.0`），提交并推送。
+1. 更新 `clean-selector/package.json` 的 version 为正式 `x.y.z`（当前为 `0.6.0`），提交并推送。
 2. 打 tag：`git tag -a '@gkd-kit/selector@0.6.0' -m '@gkd-kit/selector@0.6.0'`。
 3. 推送 tag，工作流自动发布。
 
 发布前会执行包内 `prepack` 钩子，即 `pnpm test`：`test:kotlin` → `build` → `type-check`（tsc）→ `test:node`。任一步失败都不会发布。
 
-`Publish-Selector.yml` 中的 tag 校验脚本为 `gkd-selector/scripts/validate-release-tag.ts`，只接受数字 `x.y.z` 且要求 tag 等于 `package.json` 的 `name@version`。
+`Publish-Selector.yml` 中的 tag 校验脚本为 `clean-selector/scripts/validate-release-tag.ts`，只接受数字 `x.y.z` 且要求 tag 等于 `package.json` 的 `name@version`。
 
 ### 9.3 工作区辅助脚本
 
 `package.json` 只暴露一个根脚本：
 
 ```json
-"fetch-selector-dist": "node ./gkd-selector/scripts/fetch-dist.ts"
+"fetch-selector-dist": "node ./clean-selector/scripts/fetch-dist.ts"
 ```
 
-它把已发布的 npm 包下载到临时目录，校验包名、版本、JS 入口与类型声明后，**只替换被忽略的本地 `dist` 目录**；不会在依赖安装时自动运行，也不修改 Kotlin 源码。当修改选择器 Kotlin 代码时，应改用 `pnpm --dir gkd-selector build` 从本地源码重建 `dist`。
+它把已发布的 npm 包下载到临时目录，校验包名、版本、JS 入口与类型声明后，**只替换被忽略的本地 `dist` 目录**；不会在依赖安装时自动运行，也不修改 Kotlin 源码。当修改选择器 Kotlin 代码时，应改用 `pnpm --dir clean-selector build` 从本地源码重建 `dist`。
 
 ## 10. 仓库忽略与本地文件
 
@@ -271,7 +271,7 @@ CI 需要的 Secrets：`GRADLE_CACHE_ENCRYPTION_KEY`、`GKD_STORE_FILE_BASE64`�
 需要注意：
 
 - `local.properties` 被忽略但本快照中存在，包含本机 Android SDK 路径；不要提交。
-- `gkd-app/src/main/res/values/strings.xml` 是 UI 文案的唯一维护点（见 `gkd-app/STRINGS.md`）。
+- `clean-app/src/main/res/values/strings.xml` 是 UI 文案的唯一维护点（见 `clean-app/STRINGS.md`）。
 
 ## 11. 关键文件索引
 
@@ -283,12 +283,12 @@ CI 需要的 Secrets：`GRADLE_CACHE_ENCRYPTION_KEY`、`GKD_STORE_FILE_BASE64`�
 | `gradle/libs.versions.toml` | 版本目录 |
 | `gradle/wrapper/gradle-wrapper.properties` | Gradle 9.7.1 distribution |
 | `stability_config.conf` | Compose 稳定性配置 |
-| `gkd-app/build.gradle.kts` | 变体、签名、文案生成、构建产物上传、依赖清单 |
-| `gkd-db/build.gradle.kts` | KMP targets、Room schema 目录、KSP |
-| `gkd-selector/build.gradle.kts` | KMP targets、`explicitApi()`、npm 依赖注入 |
-| `gkd-hidden-api/build.gradle.kts` | 隐藏 API 存根与 remap processor |
+| `clean-app/build.gradle.kts` | 变体、签名、文案生成、构建产物上传、依赖清单 |
+| `clean-db/build.gradle.kts` | KMP targets、Room schema 目录、KSP |
+| `clean-selector/build.gradle.kts` | KMP targets、`explicitApi()`、npm 依赖注入 |
+| `clean-hidden-api/build.gradle.kts` | 隐藏 API 存根与 remap processor |
 | `buildSrc/src/main/kotlin/li/gkd/gradle/*.kt` | 构建期任务与约定 |
 | `.github/workflows/Build-Apk.yml` | 分支构建 APK |
 | `.github/workflows/Build-Release.yml` | tag 发布 APK + AAB + GitHub Release |
 | `.github/workflows/Publish-Selector.yml` | 发布 npm 包 |
-| `gkd-selector/package.json` | npm 包元数据与 `prepack` 测试链 |
+| `clean-selector/package.json` | npm 包元数据与 `prepack` 测试链 |

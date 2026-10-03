@@ -1,7 +1,7 @@
 # 无障碍与自动化运行时
 
-> 本文档描述 `gkd-app` 中「把规则变成屏幕动作」的那一层：无障碍/自动化服务的接入与选择、前台状态与规则快照、一次事件的完整匹配流程、动作执行、Android 系统组件、通知、保活悬浮窗、截图与快照、日志。
-> `gkd-app/ARCHITECTURE.md` 是这一层分层与写入边界的**设计基线**，本文在其之上给出代码级细节；两者冲突时**以源码为准**。文中路径均为仓库相对路径（正斜杠），所有类名、函数名、字段名均取自仓库源码。
+> 本文档描述 `clean-app` 中「把规则变成屏幕动作」的那一层：无障碍/自动化服务的接入与选择、前台状态与规则快照、一次事件的完整匹配流程、动作执行、Android 系统组件、通知、保活悬浮窗、截图与快照、日志。
+> `clean-app/ARCHITECTURE.md` 是这一层分层与写入边界的**设计基线**，本文在其之上给出代码级细节；两者冲突时**以源码为准**。文中路径均为仓库相对路径（正斜杠），所有类名、函数名、字段名均取自仓库源码。
 
 ## 1. 定位与边界
 
@@ -9,13 +9,13 @@
 
 | 代码域 | 路径 | 职责 |
 | --- | --- | --- |
-| 运行时门面与前台状态 | `gkd-app/src/main/kotlin/li/gkd/app/a11y/A11yRuntime.kt`、`…/A11yState.kt` | 在无障碍服务与自动化服务之间选择并提供根节点/窗口/截图/动作入口；前台信息与规则选择的加锁更新、`ActivityRule` 快照发布、日志写入 |
-| 引擎与节点查询 | `gkd-app/src/main/kotlin/li/gkd/app/a11y/A11yRuleEngine.kt`、`…/A11yContext.kt` | 事件消费、查询调度、规则匹配、动作执行；把 `AccessibilityNodeInfo` 树适配给选择器并做缓存与中断 |
-| 契约、事件扩展与运行期特性 | `gkd-app/src/main/kotlin/li/gkd/app/a11y/A11yCommonImpl.kt`、`…/A11yExt.kt`、`…/A11yFeat.kt` | 两种运行时的公共接口；事件常量与封装、节点时间戳、选择器类型模型；屏幕状态监听、音量键截图、订阅自动更新、规则变更日志 |
-| Android 组件 | `gkd-app/src/main/kotlin/li/gkd/app/service/` | 无障碍服务、前台服务、磁贴、`OverlayWindowService` 基类 |
-| 平台能力 | `gkd-app/src/main/kotlin/li/gkd/app/platform/` | Service 启停、保活悬浮窗协调、`MediaProjection` 截屏会话、生命周期钩子 |
+| 运行时门面与前台状态 | `clean-app/src/main/kotlin/li/gkd/app/a11y/A11yRuntime.kt`、`…/A11yState.kt` | 在无障碍服务与自动化服务之间选择并提供根节点/窗口/截图/动作入口；前台信息与规则选择的加锁更新、`ActivityRule` 快照发布、日志写入 |
+| 引擎与节点查询 | `clean-app/src/main/kotlin/li/gkd/app/a11y/A11yRuleEngine.kt`、`…/A11yContext.kt` | 事件消费、查询调度、规则匹配、动作执行；把 `AccessibilityNodeInfo` 树适配给选择器并做缓存与中断 |
+| 契约、事件扩展与运行期特性 | `clean-app/src/main/kotlin/li/gkd/app/a11y/A11yCommonImpl.kt`、`…/A11yExt.kt`、`…/A11yFeat.kt` | 两种运行时的公共接口；事件常量与封装、节点时间戳、选择器类型模型；屏幕状态监听、音量键截图、订阅自动更新、规则变更日志 |
+| Android 组件 | `clean-app/src/main/kotlin/li/gkd/app/service/` | 无障碍服务、前台服务、磁贴、`OverlayWindowService` 基类 |
+| 平台能力 | `clean-app/src/main/kotlin/li/gkd/app/platform/` | Service 启停、保活悬浮窗协调、`MediaProjection` 截屏会话、生命周期钩子 |
 
-运行期组件在 `gkd-app/src/main/kotlin/li/gkd/app/App.kt` 的 `initializeRuntimeComponents()` 中装配，其中与本层直接相关的是 `NotificationChannels.initialize()`、`initA11yFeat()`、`initPrivilege()`、`initA11yWhiteAppList()`、`clearHttpSubs()`。
+运行期组件在 `clean-app/src/main/kotlin/li/gkd/app/App.kt` 的 `initializeRuntimeComponents()` 中装配，其中与本层直接相关的是 `NotificationChannels.initialize()`、`initA11yFeat()`、`initPrivilege()`、`initA11yWhiteAppList()`、`clearHttpSubs()`。
 
 ## 2. 运行时拓扑
 
@@ -45,7 +45,7 @@ flowchart TD
     PERF --> LOG
     PERF --> TRK["TrackService 动作轨迹"]
     CAP["SnapshotCapture"] --> SHOT["A11yRuntime.screenshot<br/>或 ScreenshotService"]
-    LOG["日志写入<br/>ActionLog / ActivityLog / A11yEventLog"] --> DB[("Room gkd-db")]
+    LOG["日志写入<br/>ActionLog / ActivityLog / A11yEventLog"] --> DB[("Room clean-db")]
     SRV["前台 Service 与磁贴"] --> NOTIF["NotificationDispatcher<br/>NotificationCatalog"]
 ```
 
@@ -63,7 +63,7 @@ flowchart TD
 | 无障碍模式 | `AutomatorModeOption.A11yMode`（值 1） | `li.gkd.app.service.A11yService` | `onAccessibilityEvent` | `rootInActiveWindow` | `takeScreenshot(Display.DEFAULT_DISPLAY, …)`（API 30+） | `performAction` / `dispatchGesture` |
 | 自动化模式 | `AutomatorModeOption.AutomationMode`（值 2） | `li.gkd.app.priv.AutomationService` | `UiAutomation.OnAccessibilityEventListener` | `uiAutomation.rootInActiveWindow` | `privilegeContextFlow.value?.screenshot()` | 特权进程 `tap` / `swipe`，回退到 `dispatchGesture` |
 
-模式名与值来自 `gkd-app/src/main/kotlin/li/gkd/app/util/Option.kt` 的 `AutomatorModeOption`；当前模式持久化在 `SettingsStore.automatorMode`，并派生 `useA11y` / `useAutomation` 两个只读属性。用户界面见 `gkd-app/src/main/kotlin/li/gkd/app/feature/settings/WorkModePage.kt`（两个 `RadioButton`，标题取 `AutomatorModeOption.*.label`）。
+模式名与值来自 `clean-app/src/main/kotlin/li/gkd/app/util/Option.kt` 的 `AutomatorModeOption`；当前模式持久化在 `SettingsStore.automatorMode`，并派生 `useA11y` / `useAutomation` 两个只读属性。用户界面见 `clean-app/src/main/kotlin/li/gkd/app/feature/settings/WorkModePage.kt`（两个 `RadioButton`，标题取 `AutomatorModeOption.*.label`）。
 
 ### 3.1 选择规则
 
@@ -268,7 +268,7 @@ class A11yContext(
 
 ## 7. 动作类型
 
-动作名与实现位于 `gkd-app/src/main/kotlin/li/gkd/app/data/GkdAction.kt` 的 `ActionPerformer` 密封类；`ActionPerformer.getAction(action)` 在 `allSubObjects` 中按 `action` 字符串查找，**未匹配时回退到 `Click`**。参数模型是 `RawSubscription.LocationProps`（`position: Position?`、`swipeArg: SwipeArg?`），`Position.calc(rect)` 支持 `left/top/right/bottom/x/y` 六个表达式的组合，`SwipeArg(start, end, duration)`。
+动作名与实现位于 `clean-app/src/main/kotlin/li/gkd/app/data/GkdAction.kt` 的 `ActionPerformer` 密封类；`ActionPerformer.getAction(action)` 在 `allSubObjects` 中按 `action` 字符串查找，**未匹配时回退到 `Click`**。参数模型是 `RawSubscription.LocationProps`（`position: Position?`、`swipeArg: SwipeArg?`），`Position.calc(rect)` 支持 `left/top/right/bottom/x/y` 六个表达式的组合，`SwipeArg(start, end, duration)`。
 
 | `action` 值 | 实现 | 参数 | 行为 |
 | --- | --- | --- | --- |
@@ -291,7 +291,7 @@ private val performer = ActionPerformer.getAction(rule.action
 
 ## 8. Service 清单
 
-以下表格与 `gkd-app/src/main/AndroidManifest.xml` 逐条对应；`gkd-app/src/gkd/AndroidManifest.xml` 只额外声明了 `REQUEST_INSTALL_PACKAGES`，不涉及本层组件。
+以下表格与 `clean-app/src/main/AndroidManifest.xml` 逐条对应；`clean-app/src/gkd/AndroidManifest.xml` 只额外声明了 `REQUEST_INSTALL_PACKAGES`，不涉及本层组件。
 
 | 类名（`li.gkd.app.service` 等） | 类型 | 触发方式 | 作用 | Manifest 关键属性 |
 | --- | --- | --- | --- | --- |
@@ -310,16 +310,16 @@ private val performer = ActionPerformer.getAction(rule.action
 | `StopServiceReceiver`（`li.gkd.app.notif`） | BroadcastReceiver（**运行时注册**） | 通知的删除意图与「停止」按钮 | 按类名匹配并 `stopSelf()` 发起通知的 Service | **无**（不写入 Manifest） |
 | `BaseTileService` / `OverlayWindowService` / `LifecycleHookService` / `ServiceEffects.kt` | 抽象基类与扩展 | — | 磁贴活跃态订阅、悬浮窗窗口与拖动、生命周期回调分发、`useServicePresence` / `useStopServiceReceiver` | **无**（不注册组件） |
 
-`BaseTileService` 的统一行为：`onStartListening` 里若距 `lastA11yFixTime` 超过 3 秒就调用 `fixRestartAutomatorService()`（定义在 `gkd-app/src/main/kotlin/li/gkd/app/service/GkdTileService.kt`），并用 `activeFlow` 驱动 `qsTile.state`；`onClick` 先 `StatusService.autoStart()` 再执行 `onTileClick()`。
+`BaseTileService` 的统一行为：`onStartListening` 里若距 `lastA11yFixTime` 超过 3 秒就调用 `fixRestartAutomatorService()`（定义在 `clean-app/src/main/kotlin/li/gkd/app/service/GkdTileService.kt`），并用 `activeFlow` 驱动 `qsTile.state`；`onClick` 先 `StatusService.autoStart()` 再执行 `onTileClick()`。
 
 ### 8.1 `service` 包名为什么不能改
 
-`gkd-app/src/main/kotlin/li/gkd/app/service/` 承载的是**系统侧身份**，而不是普通代码组织：
+`clean-app/src/main/kotlin/li/gkd/app/service/` 承载的是**系统侧身份**，而不是普通代码组织：
 
 - 无障碍服务在 `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` 中按 `ComponentName` 保存；`A11yService.a11yCn` 就是 `SelectToSpeakService::class.componentName`，`GkdTileService.switchA11yService()` / `fixA11yService()` 直接用它增删该集合。磁贴组件同样由系统设置按 `ComponentName` 记住用户添加的磁贴，`QS_TILE_URI` 与 `QS_TILE_PREFERENCES` 也绑定在这些组件上。
 - `ExposeService.initCommandFile()` 把 `ExposeService::class.componentName.flattenToShortString()` 写进 `expose.sh`，改名等于破坏既有脚本；`StopServiceReceiver` 用 `service::class.jvmName` 作为停止目标标识。
 
-`gkd-app/ARCHITECTURE.md` 与 `docs/02-architecture.md` 都明确：**只迁移调用边界（经 `platform/` 与 UI 解耦），不修改组件类名与包名**。需要改行为时新增 `platform/` 或 `data/` 层的薄封装，不要动这里的类名。
+`clean-app/ARCHITECTURE.md` 与 `docs/02-architecture.md` 都明确：**只迁移调用边界（经 `platform/` 与 UI 解耦），不修改组件类名与包名**。需要改行为时新增 `platform/` 或 `data/` 层的薄封装，不要动这里的类名。
 
 ## 9. 通知体系
 
@@ -338,14 +338,14 @@ flowchart LR
 
 | 类型 | 文件 | 职责 |
 | --- | --- | --- |
-| `AppNotificationChannel` / `NotificationChannels` | `gkd-app/src/main/kotlin/li/gkd/app/notif/NotificationChannels.kt` | 定义两个渠道：`Service`（id `"0"`）与 `Snapshot`（id `"1"`，标签 `UiStrings.snapshot_notification_channel`），默认 `IMPORTANCE_LOW`；`initialize()` 会**删除不在枚举内**的旧渠道后重建 |
-| `ForegroundNotificationKey` / `PostedNotificationKey` / `AppNotificationSpec` / `ForegroundNotification` / `PostedNotification` / `NotificationCatalog` | `gkd-app/src/main/kotlin/li/gkd/app/notif/NotificationCatalog.kt` | 通知的**身份与规格**（固定 id、渠道、图标、标题、正文、跳转 uri、是否常驻、是否自动取消、可停止的 Service 类）与规格工厂：`status` / `screenshot` / `button` / `http(port, ips)` / `expose` / `snapshotSaved(...)` / `activity(text)` / `event` / `track` |
-| `NotificationDispatcher` | `gkd-app/src/main/kotlin/li/gkd/app/notif/NotificationDispatcher.kt` | 真正构建与投递：`PendingIntent.getActivity`（`MainActivity`，`FLAG_ACTIVITY_NEW_TASK`，`data = uri.toString().toUri()`）、`post()`、`startForeground()`；`stopService` 存在时挂 `setDeleteIntent` 与「停止」动作 |
-| `StopServiceReceiver` | `gkd-app/src/main/kotlin/li/gkd/app/notif/StopServiceReceiver.kt` | 动态注册 `RECEIVER_NOT_EXPORTED`，action 为 `${META.appId}.STOP_SERVICE`，额外信息是目标类的 `jvmName` |
+| `AppNotificationChannel` / `NotificationChannels` | `clean-app/src/main/kotlin/li/gkd/app/notif/NotificationChannels.kt` | 定义两个渠道：`Service`（id `"0"`）与 `Snapshot`（id `"1"`，标签 `UiStrings.snapshot_notification_channel`），默认 `IMPORTANCE_LOW`；`initialize()` 会**删除不在枚举内**的旧渠道后重建 |
+| `ForegroundNotificationKey` / `PostedNotificationKey` / `AppNotificationSpec` / `ForegroundNotification` / `PostedNotification` / `NotificationCatalog` | `clean-app/src/main/kotlin/li/gkd/app/notif/NotificationCatalog.kt` | 通知的**身份与规格**（固定 id、渠道、图标、标题、正文、跳转 uri、是否常驻、是否自动取消、可停止的 Service 类）与规格工厂：`status` / `screenshot` / `button` / `http(port, ips)` / `expose` / `snapshotSaved(...)` / `activity(text)` / `event` / `track` |
+| `NotificationDispatcher` | `clean-app/src/main/kotlin/li/gkd/app/notif/NotificationDispatcher.kt` | 真正构建与投递：`PendingIntent.getActivity`（`MainActivity`，`FLAG_ACTIVITY_NEW_TASK`，`data = uri.toString().toUri()`）、`post()`、`startForeground()`；`stopService` 存在时挂 `setDeleteIntent` 与「停止」动作 |
+| `StopServiceReceiver` | `clean-app/src/main/kotlin/li/gkd/app/notif/StopServiceReceiver.kt` | 动态注册 `RECEIVER_NOT_EXPORTED`，action 为 `${META.appId}.STOP_SERVICE`，额外信息是目标类的 `jvmName` |
 
 固定 id：`Status=100`、`Screenshot=101`、`Button=102`、`Http=103`、`Expose=104`、`Activity=106`、`Event=107`、`Track=108`，已发布（非前台）通知 `SnapshotSaved=105`。
 
-模板变量机制：`NotificationTemplate.kt` 的 `String.replaceNotificationTemplate(ruleSummary, count)` 做四次字面替换——`${i}` → `ruleSummary.globalGroups.size`、`${k}` → `ruleSummary.appSize`、`${u}` → `ruleSummary.appGroupSize`、`${n}` → `actionCountFlow` 的累计触发次数。默认模板由字符串资源提供，其字面值经 `gkd-app/src/test/kotlin/li/gkd/app/text/UiStringsFormattingTest.kt` 断言为 `${i}全局/${k}应用/${u}规则/${n}触发`（`UiStrings` 由 `buildSrc` 的 `GenerateUiStringsTask` 生成，源码中不存在该文件）。**注意**：动作 Toast 用的是另一套机制，`gkd-app/src/main/kotlin/li/gkd/app/util/ActionToastTemplate.kt` 只替换 `${1}`/`${2}`/`${3}`（规则名/组名/计数）。
+模板变量机制：`NotificationTemplate.kt` 的 `String.replaceNotificationTemplate(ruleSummary, count)` 做四次字面替换——`${i}` → `ruleSummary.globalGroups.size`、`${k}` → `ruleSummary.appSize`、`${u}` → `ruleSummary.appGroupSize`、`${n}` → `actionCountFlow` 的累计触发次数。默认模板由字符串资源提供，其字面值经 `clean-app/src/test/kotlin/li/gkd/app/text/UiStringsFormattingTest.kt` 断言为 `${i}全局/${k}应用/${u}规则/${n}触发`（`UiStrings` 由 `buildSrc` 的 `GenerateUiStringsTask` 生成，源码中不存在该文件）。**注意**：动作 Toast 用的是另一套机制，`clean-app/src/main/kotlin/li/gkd/app/util/ActionToastTemplate.kt` 只替换 `${1}`/`${2}`/`${3}`（规则名/组名/计数）。
 
 `NotificationDispatcher.startForeground` 的两道防御：Android 14+ 若服务声明了 `specialUse` 类型则先检查 `PermissionStates.foregroundServiceSpecialUse`，不满足就 `stopSelf()` 并返回 `false`；系统自动重启的服务仍可能抛 `SecurityException`，因此捕获后再 `stopSelf()`。`StatusService` 的 `statusTriple()` 就是「通知文案的决策树」：权限受限 → 特权服务断连 → 两种服务都未运行 → `enableMatch` 关闭 → 自定义模板或 `ruleSummary.statusText(count)`。
 
@@ -353,7 +353,7 @@ flowchart LR
 
 ### 10.1 保活悬浮窗协调：`KeepAliveOverlayCoordinator`
 
-`gkd-app/src/main/kotlin/li/gkd/app/platform/overlay/KeepAliveOverlayCoordinator.kt` 是**唯一**的保活悬浮窗管理者，两个来源互斥但可交接：
+`clean-app/src/main/kotlin/li/gkd/app/platform/overlay/KeepAliveOverlayCoordinator.kt` 是**唯一**的保活悬浮窗管理者，两个来源互斥但可交接：
 
 | 成员 | 说明 |
 | --- | --- |
@@ -366,7 +366,7 @@ flowchart LR
 
 ### 10.2 `OverlayWindowService`：可拖动悬浮窗基类
 
-`gkd-app/src/main/kotlin/li/gkd/app/service/OverlayWindowService.kt` 是抽象基类（`LifecycleHookService` + `SavedStateRegistryOwner`），`ActivityService` / `EventService` / `ButtonService` 继承它，各自传入 `positionKey`：
+`clean-app/src/main/kotlin/li/gkd/app/service/OverlayWindowService.kt` 是抽象基类（`LifecycleHookService` + `SavedStateRegistryOwner`），`ActivityService` / `EventService` / `ButtonService` 继承它，各自传入 `positionKey`：
 
 - 位置持久化在 `ShareContext.positionMapFlow`（`FileStateStore.createJsonFlow("overlay_position")`），键即 `positionKey`；拖动结束后 `debounce(300ms)` 写回；所有实例共享一个 `ShareContext` 引用计数（`acquireShareContext()` / `ShareContextLease`），计数归零才取消 scope。
 - 窗口类型固定为 `WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY`，flag 为 `FLAG_NOT_FOCUSABLE or FLAG_LAYOUT_NO_LIMITS or FLAG_LAYOUT_IN_SCREEN`；`ShareContext` 还会监听 `topActivityFlow`，连续 6×500ms 轮询悬浮窗权限，从有到无时提示 `UiStrings.overlay_screen_denied`。
@@ -375,7 +375,7 @@ flowchart LR
 
 ### 10.3 工作模式
 
-`gkd-app/src/main/kotlin/li/gkd/app/feature/settings/WorkModePage.kt`（配套 `WorkModeVm.kt`，仅每秒 `PermissionStates.refreshAll()`）用两张 `Card` + `RadioButton` 呈现模式选择：
+`clean-app/src/main/kotlin/li/gkd/app/feature/settings/WorkModePage.kt`（配套 `WorkModeVm.kt`，仅每秒 `PermissionStates.refreshAll()`）用两张 `Card` + `RadioButton` 呈现模式选择：
 
 | 卡片 | 选择的模式 | 前置条件 | 相关文案常量 |
 | --- | --- | --- | --- |
@@ -390,14 +390,14 @@ flowchart LR
 
 | 组件 | 文件 | 职责 |
 | --- | --- | --- |
-| `ScreenshotService` | `gkd-app/src/main/kotlin/li/gkd/app/service/ScreenshotService.kt` | 前台服务；`onStartCommand` 用 `ResourceSlot<MediaProjectionScreenshotSession>` 原子替换会话，会话失效回调经 `runMainPost` 判定后 `stopSelf()` |
-| `MediaProjectionScreenshotSession` | `gkd-app/src/main/kotlin/li/gkd/app/platform/screenshot/MediaProjectionScreenshotSession.kt` | 独占 `HandlerThread("gkd-screenshot")`；`ImageReader` + `VirtualDisplay` 抓帧，按 `rowStride/pixelStride` 还原宽度；`TerminationReason`（`ProjectionStopped`/`Closed`/`InitializationFailed`）统一收尾并回调 `onInvalidated`；全透明帧被丢弃 |
-| `SnapshotCapture` | `gkd-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotCapture.kt` | `object`；`captureMutex.tryLock()` 保证串行（`isCapturing` 暴露给 `A11yFeat.watchCaptureScreenshot`）；并发取根节点节点列表、`resolveActivityId`、截图，落盘后按设置 `autoSaveSnapshotToDownloads` 另存下载目录，最后发 `PostedNotificationKey.SnapshotSaved` |
-| `SnapshotFileLayout`、`SnapshotDirectoryTransaction`、`SnapshotScreenshotStatus` | `gkd-app/src/main/kotlin/li/gkd/app/snapshot/` | 目录布局（已提交 `<id>/`、暂存 `.<id>.tmp/`，文件 `<id>.json`/`<id>.min.json`/`<id>.webp`/旧版 `<id>.png`）与 `hasSupportedImageHeader()` 魔数校验；`commitSnapshotDirectory(layout, id, write, publish)` 写暂存 → `ensureActive()` → `withContext(NonCancellable)` 内 `renameTo` + `publish()`，失败分别回滚；`Captured`/`Unavailable`/`LikelyProtected` 三态与 `detailText()` |
+| `ScreenshotService` | `clean-app/src/main/kotlin/li/gkd/app/service/ScreenshotService.kt` | 前台服务；`onStartCommand` 用 `ResourceSlot<MediaProjectionScreenshotSession>` 原子替换会话，会话失效回调经 `runMainPost` 判定后 `stopSelf()` |
+| `MediaProjectionScreenshotSession` | `clean-app/src/main/kotlin/li/gkd/app/platform/screenshot/MediaProjectionScreenshotSession.kt` | 独占 `HandlerThread("gkd-screenshot")`；`ImageReader` + `VirtualDisplay` 抓帧，按 `rowStride/pixelStride` 还原宽度；`TerminationReason`（`ProjectionStopped`/`Closed`/`InitializationFailed`）统一收尾并回调 `onInvalidated`；全透明帧被丢弃 |
+| `SnapshotCapture` | `clean-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotCapture.kt` | `object`；`captureMutex.tryLock()` 保证串行（`isCapturing` 暴露给 `A11yFeat.watchCaptureScreenshot`）；并发取根节点节点列表、`resolveActivityId`、截图，落盘后按设置 `autoSaveSnapshotToDownloads` 另存下载目录，最后发 `PostedNotificationKey.SnapshotSaved` |
+| `SnapshotFileLayout`、`SnapshotDirectoryTransaction`、`SnapshotScreenshotStatus` | `clean-app/src/main/kotlin/li/gkd/app/snapshot/` | 目录布局（已提交 `<id>/`、暂存 `.<id>.tmp/`，文件 `<id>.json`/`<id>.min.json`/`<id>.webp`/旧版 `<id>.png`）与 `hasSupportedImageHeader()` 魔数校验；`commitSnapshotDirectory(layout, id, write, publish)` 写暂存 → `ensureActive()` → `withContext(NonCancellable)` 内 `renameTo` + `publish()`，失败分别回滚；`Captured`/`Unavailable`/`LikelyProtected` 三态与 `detailText()` |
 
 判定细节：自动化模式 + Android 14+ 会**先**检查前台窗口 `FLAG_SECURE`（`privilegeContext.isFocusedWindowSecure(appId)`）再决定是否调用特权截图，避免 `IWindowManager.captureDisplay` 在保护窗口上等到系统超时；截图「看起来全黑」时（`looksLikeBlankScreenshot()`：缩到 64×64、忽略 8% 边缘、方差 < 15、近黑比例 > 0.85、均值 < 15）会再查一次 `FLAG_SECURE` 以决定是 `LikelyProtected` 还是 `Captured`。`hideSnapshotStatusBar` 且状态栏可见（或 `forcedCropStatusBar`）时 `cropStatusBar()` 会把状态栏区域涂成透明。
 
-快照落盘由 `gkd-app/src/main/kotlin/li/gkd/app/data/snapshot/SnapshotRepository.kt` 的 `save(snapshot, bitmap)` 驱动：写 `<id>.webp`（`webpLossyCompressFormat`，质量 85）、`<id>.json`、`<id>.min.json`，提交阶段再 `snapshotDao.insert(snapshot.toSnapshot())`。同一 `mutationMutex` 也保护 `delete` / `replaceScreenshot` / `createArchive` / `markUploaded`。
+快照落盘由 `clean-app/src/main/kotlin/li/gkd/app/data/snapshot/SnapshotRepository.kt` 的 `save(snapshot, bitmap)` 驱动：写 `<id>.webp`（`webpLossyCompressFormat`，质量 85）、`<id>.json`、`<id>.min.json`，提交阶段再 `snapshotDao.insert(snapshot.toSnapshot())`。同一 `mutationMutex` 也保护 `delete` / `replaceScreenshot` / `createArchive` / `markUploaded`。
 
 磁贴侧的差异：本快照中**不存在 `ScreenshotTileService`**；截图由 `SnapshotTileService` 与 `ButtonTileService`（只开关 `ButtonService`，实际截图靠悬浮按钮）触发，且**只有 `SnapshotTileService` 会先返回桌面**——它在 `appScope.launchUi(Dispatchers.IO)` 中循环读取 `A11yRuntime.getRoot(service)?.packageName`，若前台未变则 `A11yRuntime.performActionBack()`，3 秒超时则提示并回退，appId 变化后 `SnapshotCapture.capture(forcedCropStatusBar = true)`；它的 `activeFlow = flowOf(false)`，因此磁贴永远显示未激活。
 
@@ -405,9 +405,9 @@ flowchart LR
 
 ### 12.1 `HttpService`
 
-`gkd-app/src/main/kotlin/li/gkd/app/service/HttpService.kt`，Ktor `embeddedServer(CIO, port)`：
+`clean-app/src/main/kotlin/li/gkd/app/service/HttpService.kt`，Ktor `embeddedServer(CIO, port)`：
 
-- 端口与监听：端口来自 `storeFlow.value.httpServerPort`，**默认 `8888`**（`gkd-app/src/main/kotlin/li/gkd/app/data/settings/SettingsStore.kt`）；`httpServerPortFlow` 变化会 `collectLatest` 重启服务器，重启前用 `NetworkUtils.isPortAvailable(port)` 检查占用，占用或启动失败即 `stopSelf()`。代码中**没有显式指定 host**，监听地址取决于 Ktor CIO 默认值（本文未在设备上验证具体绑定地址，不做断言）；通知里展示的是 `NetworkUtils.getIpAddressInLocalNetwork()`（空则 `127.0.0.1`）。
+- 端口与监听：端口来自 `storeFlow.value.httpServerPort`，**默认 `8888`**（`clean-app/src/main/kotlin/li/gkd/app/data/settings/SettingsStore.kt`）；`httpServerPortFlow` 变化会 `collectLatest` 重启服务器，重启前用 `NetworkUtils.isPortAvailable(port)` 检查占用，占用或启动失败即 `stopSelf()`。代码中**没有显式指定 host**，监听地址取决于 Ktor CIO 默认值（本文未在设备上验证具体绑定地址，不做断言）；通知里展示的是 `NetworkUtils.getIpAddressInLocalNetwork()`（空则 `127.0.0.1`）。
 - 全局 CORS 插件（`KtorCorsPlugin`）对每个响应写入 `Access-Control-Allow-Origin/Methods/Headers/Expose-Headers: *` 与 `Access-Control-Allow-Private-Network: true`，并对 `OPTIONS` 直接返回 `all-cors-ok`。
 - 错误插件（`KtorErrorPlugin`）把 `RpcError` 原样返回，其他异常包成 `RpcError(unknown = true)`。
 
@@ -415,7 +415,7 @@ flowchart LR
 
 | 方法 | 路径 | 请求 | 响应 |
 | --- | --- | --- | --- |
-| GET | `/` | — | HTML：`<script type='module' src='$SERVER_SCRIPT_URL'></script>`（`SERVER_SCRIPT_URL` 定义在 `gkd-app/src/main/kotlin/li/gkd/app/util/Constants.kt`） |
+| GET | `/` | — | HTML：`<script type='module' src='$SERVER_SCRIPT_URL'></script>`（`SERVER_SCRIPT_URL` 定义在 `clean-app/src/main/kotlin/li/gkd/app/util/Constants.kt`） |
 | POST | `/api/getServerInfo` | — | `ServerInfo(device: DeviceInfo, gkdAppInfo: AppInfo)` |
 | POST | `/api/getSnapshot` | `ReqId(id: Long)` | 快照 JSON 文件（`SnapshotRepository.snapshotFile`），不存在抛 `RpcError` |
 | POST | `/api/getScreenshot` | `ReqId` | 截图文件（`SnapshotRepository.screenshotFile`） |
@@ -455,14 +455,14 @@ flowchart LR
 
 | 数据 | 实体 / DAO | 写入点 | 裁剪策略 |
 | --- | --- | --- | --- |
-| 无障碍事件日志 | `gkd-db/src/commonMain/kotlin/li/gkd/db/A11yEventLog.kt`（表 `a11y_event_log`，主键 `id: Int`，**非 autoGenerate**，由 `EventService` 的 `logAutoId` 递增分配） | `A11yRuleEngine.onA11yEvent` 调用 `EventService.logEvent(event)`；`EventService` 用 `tempEventListFlow` 缓冲，`lifecycleScope` 每 **1000ms** `flushEventLogs()`（`withContext(NonCancellable)`）批量 `Db.a11yEventLogDao.insert(list)`；`logAutoId` 初值取 `maxId()` | 内存列表 `eventLogs` 超过 256 条时 `removeRange(0, 64)`；`eventLog.id % 100 == 0` 时 `Db.a11yEventLogDao.deleteKeepLatest()`；DAO 的 SQL 保留**最新 1000 条** |
-| 动作日志 | `gkd-db/src/commonMain/kotlin/li/gkd/db/ActionLog.kt`（表 `action_log`，自增主键） | `A11yState.addActionLog(rule, topActivity, target, actionResult)`（同文件的顶层函数），在 `appScope.launchLogged(Dispatchers.IO)` 内由 `actionLogMutex` 串行执行 `Db.actionLogDao.insert(actionLog)` | 插入后若 `actionCountFlow.value % 100 == 0L` 则 `deleteKeepLatest()`；DAO 的 SQL 保留**最新 500 条**。字段含 `subsId`/`subsVersion`/`groupKey`/`groupType`/`ruleIndex`/`ruleKey` |
-| 前台变化日志 | `gkd-db/src/commonMain/kotlin/li/gkd/db/ActivityLog.kt`（表 `activity_log`，自增主键） | `A11yState.updateTopActivity` 累积到 `tempActivityLogList`，达到 **16 条或 `appId == META.appId`** 时 `Db.activityLogDao.insert(*logs)` | 每 **100** 次 `updateTopActivity` 调一次 `deleteKeepLatest()`；DAO 的 SQL 按 `ctime` 保留**最新 500 条** |
-| 应用访问记录 | `gkd-db/src/commonMain/kotlin/li/gkd/db/AppLastVisit.kt`（表 `app_last_visit`） | `gkd-app/src/main/kotlin/li/gkd/app/data/AppLastVisitExt.kt` 的 `AppLastVisitDao.insert(oldAppId, newAppId, lastVisitTime)`，在同一 `Db.withTransaction` 内同时写新旧两个 appId | 每 **100** 次调用 `deleteKeepLatest()`（DAO 保留最新 500 条）。`fixAppVisitTime` 会对 `META.appId` 减 120 秒、对 `launcherAppId`/`systemUiAppId` 减 60 秒，避免自身与桌面抢排序 |
+| 无障碍事件日志 | `clean-db/src/commonMain/kotlin/li/gkd/db/A11yEventLog.kt`（表 `a11y_event_log`，主键 `id: Int`，**非 autoGenerate**，由 `EventService` 的 `logAutoId` 递增分配） | `A11yRuleEngine.onA11yEvent` 调用 `EventService.logEvent(event)`；`EventService` 用 `tempEventListFlow` 缓冲，`lifecycleScope` 每 **1000ms** `flushEventLogs()`（`withContext(NonCancellable)`）批量 `Db.a11yEventLogDao.insert(list)`；`logAutoId` 初值取 `maxId()` | 内存列表 `eventLogs` 超过 256 条时 `removeRange(0, 64)`；`eventLog.id % 100 == 0` 时 `Db.a11yEventLogDao.deleteKeepLatest()`；DAO 的 SQL 保留**最新 1000 条** |
+| 动作日志 | `clean-db/src/commonMain/kotlin/li/gkd/db/ActionLog.kt`（表 `action_log`，自增主键） | `A11yState.addActionLog(rule, topActivity, target, actionResult)`（同文件的顶层函数），在 `appScope.launchLogged(Dispatchers.IO)` 内由 `actionLogMutex` 串行执行 `Db.actionLogDao.insert(actionLog)` | 插入后若 `actionCountFlow.value % 100 == 0L` 则 `deleteKeepLatest()`；DAO 的 SQL 保留**最新 500 条**。字段含 `subsId`/`subsVersion`/`groupKey`/`groupType`/`ruleIndex`/`ruleKey` |
+| 前台变化日志 | `clean-db/src/commonMain/kotlin/li/gkd/db/ActivityLog.kt`（表 `activity_log`，自增主键） | `A11yState.updateTopActivity` 累积到 `tempActivityLogList`，达到 **16 条或 `appId == META.appId`** 时 `Db.activityLogDao.insert(*logs)` | 每 **100** 次 `updateTopActivity` 调一次 `deleteKeepLatest()`；DAO 的 SQL 按 `ctime` 保留**最新 500 条** |
+| 应用访问记录 | `clean-db/src/commonMain/kotlin/li/gkd/db/AppLastVisit.kt`（表 `app_last_visit`） | `clean-app/src/main/kotlin/li/gkd/app/data/AppLastVisitExt.kt` 的 `AppLastVisitDao.insert(oldAppId, newAppId, lastVisitTime)`，在同一 `Db.withTransaction` 内同时写新旧两个 appId | 每 **100** 次调用 `deleteKeepLatest()`（DAO 保留最新 500 条）。`fixAppVisitTime` 会对 `META.appId` 减 120 秒、对 `launcherAppId`/`systemUiAppId` 减 60 秒，避免自身与桌面抢排序 |
 
 事件日志的写入前置条件由 `EventService.logEvent` 把关：`instance != null`、`logAutoId != 0`、且 `event.packageName != META.appId`。
 
-`gkd-app/src/main/kotlin/li/gkd/app/data/` 下的三个 `*LogExt.kt` 只提供展示用扩展，不写库：`A11yEventLogExt.kt`（`AccessibilityEvent.toA11yEventLog(id)`、`isStateChanged`、`fixedName`、`viewSuffixes`）、`ActionLogExt.kt`（`showActivityId`、`date`）、`ActivityLogExt.kt`（`showActivityId`、`date`）。`AppLastVisitExt.kt` 则同时提供写入函数与时间修正。
+`clean-app/src/main/kotlin/li/gkd/app/data/` 下的三个 `*LogExt.kt` 只提供展示用扩展，不写库：`A11yEventLogExt.kt`（`AccessibilityEvent.toA11yEventLog(id)`、`isStateChanged`、`fixedName`、`viewSuffixes`）、`ActionLogExt.kt`（`showActivityId`、`date`）、`ActivityLogExt.kt`（`showActivityId`、`date`）。`AppLastVisitExt.kt` 则同时提供写入函数与时间修正。
 
 其他与本层相关的日志：`A11yRuleEngine.onA11yEvent` 在 `META.debuggable` 时用 tag `onNewA11yEvent` 打印事件类型/时间差/包名/类名；`startQueryJob` 用 tag `A11yRuleEngine` 打印耗时；`A11yState.updateTopActivity` 用 tag `updateTopActivity` 打印前台迁移；`A11yFeat.initRuleChangedLog()` 对 `activityRuleFlow` 做 `debounce(300).drop(1)` 并在 `enableMatch` 且规则非空时打印每条规则的 `statusText()`。
 
@@ -470,28 +470,28 @@ flowchart LR
 
 | 仓库相对路径 | 职责 |
 | --- | --- |
-| `gkd-app/src/main/kotlin/li/gkd/app/a11y/A11yRuntime.kt`、`…/A11yState.kt`、`…/A11yRuleEngine.kt`、`…/A11yContext.kt` | 服务选择与统一入口；加锁前台状态与 `ActivityRule` 快照；事件消费与规则匹配；节点适配、缓存与中断 |
-| `gkd-app/src/main/kotlin/li/gkd/app/a11y/A11yCommonImpl.kt`、`…/A11yExt.kt`、`…/A11yFeat.kt` | 两种运行时的公共接口；事件常量与节点扩展；屏幕状态、音量键截图、订阅自动更新、规则变更日志 |
-| `gkd-app/src/main/kotlin/li/gkd/app/service/A11yService.kt`、`…/BaseTileService.kt`、`…/OverlayWindowService.kt`、`…/LifecycleHookService.kt`、`…/ServiceEffects.kt` | 无障碍服务实现与 `a11yCn`；磁贴基类；悬浮窗基类（拖动、位置持久化、`withAllOverlaysHidden`）；生命周期分发与 `useServicePresence` / `useStopServiceReceiver` |
-| `gkd-app/src/main/kotlin/li/gkd/app/service/GkdTileService.kt` | 自动化服务开关、白/黑名单联动、`topAppIdFlow`、`fixRestartAutomatorService` |
-| `gkd-app/src/main/kotlin/li/gkd/app/service/HttpService.kt`、`…/ExposeService.kt` | Ktor 服务与全部 HTTP 路由；外部调用入口与 `expose.sh` 生成 |
-| `gkd-app/src/main/kotlin/li/gkd/app/service/ScreenshotService.kt`、`…/StatusService.kt`、`…/TrackService.kt` | `MediaProjection` 前台服务与会话托管；常驻状态通知与保活悬浮窗协调；动作轨迹悬浮层 |
-| `gkd-app/src/main/kotlin/li/gkd/app/service/ActivityService.kt`、`…/EventService.kt`、`…/ButtonService.kt` | 三个 `OverlayWindowService` 子类；`EventService` 同时是 `A11yEventLog` 的唯一写入点 |
-| `gkd-app/src/main/kotlin/li/gkd/app/service/*TileService.kt` | 七个磁贴：`GkdTileService`、`SnapshotTileService`、`HttpTileService`、`ButtonTileService`、`MatchTileService`、`ActivityTileService`、`EventTileService` |
-| `gkd-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotCapture.kt`、`…/SnapshotFileLayout.kt`、`…/SnapshotDirectoryTransaction.kt`、`…/SnapshotScreenshotStatus.kt` | 快照捕获编排；目录布局与图片魔数校验；原子目录事务；截图状态枚举 |
-| `gkd-app/src/main/kotlin/li/gkd/app/platform/screenshot/MediaProjectionScreenshotSession.kt`、`…/platform/overlay/KeepAliveOverlayCoordinator.kt`、`…/platform/service/ServiceController.kt` | `VirtualDisplay` + `ImageReader` 抓帧会话；保活悬浮窗来源协调与交接；页面侧统一的 Service 启停入口 |
-| `gkd-app/src/main/kotlin/li/gkd/app/platform/lifecycle/LifecycleHooks.kt`、`…/MainActivityLifecycle.kt`、`…/ResourceSlot.kt`、`…/RuntimeStateSynchronizer.kt` | 生命周期钩子实现；`MainActivityVisibility` 与自身前台上报；可替换资源的原子槽位；合并后的运行时状态同步 |
-| `gkd-app/src/main/kotlin/li/gkd/app/notif/NotificationCatalog.kt`、`…/NotificationChannels.kt`、`…/NotificationDispatcher.kt`、`…/NotificationTemplate.kt`、`…/StopServiceReceiver.kt` | 通知规格与固定 id；渠道定义与初始化；构建/投递/`startForeground`；`${i}`/`${k}`/`${u}`/`${n}` 模板替换；停止按钮的广播接收器 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/GkdAction.kt`、`…/ResolvedRule.kt`、`…/AppRule.kt`、`…/domain/rule/RuleSummary.kt` | `GkdAction` / `ActionResult` / 全部 `ActionPerformer`；规则解析结果与 `status` 状态机；`AppRule.matchActivity`；`RuleSummary` |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/A11yEventLogExt.kt`、`…/ActionLogExt.kt`、`…/ActivityLogExt.kt`、`…/AppLastVisitExt.kt` | 三张日志的展示扩展与访问记录写入 |
-| `gkd-app/src/main/kotlin/com/google/android/accessibility/selecttospeak/SelectToSpeakService.kt` | 无障碍服务注册用的类名 |
-| `gkd-app/src/main/AndroidManifest.xml`、`gkd-app/src/main/res/xml/a11y_info.xml` | 组件、权限、前台服务类型、磁贴元数据；无障碍服务配置（事件类型、flag、手势、截图、超时） |
-| `gkd-app/src/main/kotlin/li/gkd/app/priv/AutomationService.kt`、`…/priv/CompatTaskStackListener.kt` | 自动化模式运行时与任务栈事件源（详见 `07-privilege-layer.md`） |
+| `clean-app/src/main/kotlin/li/gkd/app/a11y/A11yRuntime.kt`、`…/A11yState.kt`、`…/A11yRuleEngine.kt`、`…/A11yContext.kt` | 服务选择与统一入口；加锁前台状态与 `ActivityRule` 快照；事件消费与规则匹配；节点适配、缓存与中断 |
+| `clean-app/src/main/kotlin/li/gkd/app/a11y/A11yCommonImpl.kt`、`…/A11yExt.kt`、`…/A11yFeat.kt` | 两种运行时的公共接口；事件常量与节点扩展；屏幕状态、音量键截图、订阅自动更新、规则变更日志 |
+| `clean-app/src/main/kotlin/li/gkd/app/service/A11yService.kt`、`…/BaseTileService.kt`、`…/OverlayWindowService.kt`、`…/LifecycleHookService.kt`、`…/ServiceEffects.kt` | 无障碍服务实现与 `a11yCn`；磁贴基类；悬浮窗基类（拖动、位置持久化、`withAllOverlaysHidden`）；生命周期分发与 `useServicePresence` / `useStopServiceReceiver` |
+| `clean-app/src/main/kotlin/li/gkd/app/service/GkdTileService.kt` | 自动化服务开关、白/黑名单联动、`topAppIdFlow`、`fixRestartAutomatorService` |
+| `clean-app/src/main/kotlin/li/gkd/app/service/HttpService.kt`、`…/ExposeService.kt` | Ktor 服务与全部 HTTP 路由；外部调用入口与 `expose.sh` 生成 |
+| `clean-app/src/main/kotlin/li/gkd/app/service/ScreenshotService.kt`、`…/StatusService.kt`、`…/TrackService.kt` | `MediaProjection` 前台服务与会话托管；常驻状态通知与保活悬浮窗协调；动作轨迹悬浮层 |
+| `clean-app/src/main/kotlin/li/gkd/app/service/ActivityService.kt`、`…/EventService.kt`、`…/ButtonService.kt` | 三个 `OverlayWindowService` 子类；`EventService` 同时是 `A11yEventLog` 的唯一写入点 |
+| `clean-app/src/main/kotlin/li/gkd/app/service/*TileService.kt` | 七个磁贴：`GkdTileService`、`SnapshotTileService`、`HttpTileService`、`ButtonTileService`、`MatchTileService`、`ActivityTileService`、`EventTileService` |
+| `clean-app/src/main/kotlin/li/gkd/app/snapshot/SnapshotCapture.kt`、`…/SnapshotFileLayout.kt`、`…/SnapshotDirectoryTransaction.kt`、`…/SnapshotScreenshotStatus.kt` | 快照捕获编排；目录布局与图片魔数校验；原子目录事务；截图状态枚举 |
+| `clean-app/src/main/kotlin/li/gkd/app/platform/screenshot/MediaProjectionScreenshotSession.kt`、`…/platform/overlay/KeepAliveOverlayCoordinator.kt`、`…/platform/service/ServiceController.kt` | `VirtualDisplay` + `ImageReader` 抓帧会话；保活悬浮窗来源协调与交接；页面侧统一的 Service 启停入口 |
+| `clean-app/src/main/kotlin/li/gkd/app/platform/lifecycle/LifecycleHooks.kt`、`…/MainActivityLifecycle.kt`、`…/ResourceSlot.kt`、`…/RuntimeStateSynchronizer.kt` | 生命周期钩子实现；`MainActivityVisibility` 与自身前台上报；可替换资源的原子槽位；合并后的运行时状态同步 |
+| `clean-app/src/main/kotlin/li/gkd/app/notif/NotificationCatalog.kt`、`…/NotificationChannels.kt`、`…/NotificationDispatcher.kt`、`…/NotificationTemplate.kt`、`…/StopServiceReceiver.kt` | 通知规格与固定 id；渠道定义与初始化；构建/投递/`startForeground`；`${i}`/`${k}`/`${u}`/`${n}` 模板替换；停止按钮的广播接收器 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/GkdAction.kt`、`…/ResolvedRule.kt`、`…/AppRule.kt`、`…/domain/rule/RuleSummary.kt` | `GkdAction` / `ActionResult` / 全部 `ActionPerformer`；规则解析结果与 `status` 状态机；`AppRule.matchActivity`；`RuleSummary` |
+| `clean-app/src/main/kotlin/li/gkd/app/data/A11yEventLogExt.kt`、`…/ActionLogExt.kt`、`…/ActivityLogExt.kt`、`…/AppLastVisitExt.kt` | 三张日志的展示扩展与访问记录写入 |
+| `clean-app/src/main/kotlin/com/google/android/accessibility/selecttospeak/SelectToSpeakService.kt` | 无障碍服务注册用的类名 |
+| `clean-app/src/main/AndroidManifest.xml`、`clean-app/src/main/res/xml/a11y_info.xml` | 组件、权限、前台服务类型、磁贴元数据；无障碍服务配置（事件类型、flag、手势、截图、超时） |
+| `clean-app/src/main/kotlin/li/gkd/app/priv/AutomationService.kt`、`…/priv/CompatTaskStackListener.kt` | 自动化模式运行时与任务栈事件源（详见 `07-privilege-layer.md`） |
 
-`gkd-app/src/main/res/xml/a11y_info.xml` 声明：`accessibilityEventTypes = typeWindowContentChanged|typeWindowStateChanged`、`accessibilityFeedbackType = feedbackAllMask`、`accessibilityFlags = flagReportViewIds|flagIncludeNotImportantViews|flagDefault|flagRetrieveInteractiveWindows`、`canPerformGestures = true`、`canRetrieveWindowContent = true`、`canTakeScreenshot = true`、`isAccessibilityTool = @bool/is_accessibility_tool`、`notificationTimeout = 100`、`settingsActivity = li.gkd.app.MainActivity`。这正是引擎只处理 `STATE_CHANGED` / `CONTENT_CHANGED` 两类事件的来源。
+`clean-app/src/main/res/xml/a11y_info.xml` 声明：`accessibilityEventTypes = typeWindowContentChanged|typeWindowStateChanged`、`accessibilityFeedbackType = feedbackAllMask`、`accessibilityFlags = flagReportViewIds|flagIncludeNotImportantViews|flagDefault|flagRetrieveInteractiveWindows`、`canPerformGestures = true`、`canRetrieveWindowContent = true`、`canTakeScreenshot = true`、`isAccessibilityTool = @bool/is_accessibility_tool`、`notificationTimeout = 100`、`settingsActivity = li.gkd.app.MainActivity`。这正是引擎只处理 `STATE_CHANGED` / `CONTENT_CHANGED` 两类事件的来源。
 
 ## 15. 阅读与修改建议
 
 - 改「匹配行为」时同时看三处：`ActivityRule`（候选集合与门槛）→ `queryAction`（调度与过滤）→ `ResolvedRule.status`（状态机）。
 - 改「前台判定」时不要绕过 `A11yState.withTopActivityLock`，也不要在锁外读特权 `topCpn()` 后再进锁赋值（`ARCHITECTURE.md` 明确禁止）；新增长期日志写入时必须同时给出裁剪策略。
-- 新增系统组件只能在 `service/` 与 `gkd-app/src/main/AndroidManifest.xml` 中登记，且**不得改名**既有类；跨层调用经 `platform/service/ServiceController.kt`。本文未验证项已在 §12.4 标注，其余结论均可由表中路径的源码直接核对。
+- 新增系统组件只能在 `service/` 与 `clean-app/src/main/AndroidManifest.xml` 中登记，且**不得改名**既有类；跨层调用经 `platform/service/ServiceController.kt`。本文未验证项已在 §12.4 标注，其余结论均可由表中路径的源码直接核对。

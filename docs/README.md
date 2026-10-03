@@ -44,8 +44,8 @@
 | 文档 | 内容摘要 |
 | --- | --- |
 | [01-overview.md](01-overview.md) | 项目定位、三大支柱概念、运行前提、平台矩阵、仓库结构与代码规模、技术栈速览 |
-| [02-architecture.md](02-architecture.md) | 5 个 Gradle 模块、`gkd-app` 内部分层、启动流程、规则执行与订阅解析数据流、状态与写入边界、并发模型、跨模块契约 |
-| [03-selector-engine.md](03-selector-engine.md) | `gkd-selector` 的公开 API、语法、属性与值表达式、关系与逻辑操作符、匹配引擎、快速查询、类型校验、匹配轨迹、npm 发布 |
+| [02-architecture.md](02-architecture.md) | 5 个 Gradle 模块、`clean-app` 内部分层、启动流程、规则执行与订阅解析数据流、状态与写入边界、并发模型、跨模块契约 |
+| [03-selector-engine.md](03-selector-engine.md) | `clean-selector` 的公开 API、语法、属性与值表达式、关系与逻辑操作符、匹配引擎、快速查询、类型校验、匹配轨迹、npm 发布 |
 | [04-automation-runtime.md](04-automation-runtime.md) | `A11yRuntime` / `A11yState` / `A11yRuleEngine`、Service 与磁贴清单、通知体系、保活悬浮窗、截图与快照、HTTP 服务、三类日志 |
 | [05-subscription-and-rules.md](05-subscription-and-rules.md) | 订阅输入解析、`RawSubscription` 模型、解析汇总、启用/排除策略、写事务一致性、订阅持久化、相关数据表与页面 |
 | [06-data-layer.md](06-data-layer.md) | Room 表结构、DAO、schema 演进与迁移、设置存储语义、`Loadable`、快照存储、备份格式与回滚、并发与测试 |
@@ -62,9 +62,9 @@
 | --- | --- |
 | [`README.md`](../README.md) | 项目门面：简介、免责声明、安装、截图、订阅与选择器入口 |
 | [`AGENTS.md`](../AGENTS.md) | 仓库级强制编码约定 |
-| [`gkd-app/ARCHITECTURE.md`](../gkd-app/ARCHITECTURE.md) | `gkd-app` 分层与写入边界基线 |
-| [`gkd-app/STRINGS.md`](../gkd-app/STRINGS.md) | UI 文案维护规范 |
-| [`gkd-selector/README.md`](../gkd-selector/README.md) | 选择器包的公开 API 与快照契约 |
+| [`clean-app/ARCHITECTURE.md`](../clean-app/ARCHITECTURE.md) | `clean-app` 分层与写入边界基线 |
+| [`clean-app/STRINGS.md`](../clean-app/STRINGS.md) | UI 文案维护规范 |
+| [`clean-selector/README.md`](../clean-selector/README.md) | 选择器包的公开 API 与快照契约 |
 | [`CHANGELOG.md`](../CHANGELOG.md) | 更新内容（同时作为 GitHub Release 的 body） |
 | [`.agents/skills/android-api-diff/SKILL.md`](../.agents/skills/android-api-diff/SKILL.md) | Android framework API 跨版本调研流程 |
 

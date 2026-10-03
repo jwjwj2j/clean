@@ -33,7 +33,7 @@ jobs:
       - uses: pnpm/setup@v3
 
       - name: Validate release tag
-        run: node ./gkd-selector/scripts/validate-release-tag.ts "$GITHUB_REF_NAME"
+        run: node ./clean-selector/scripts/validate-release-tag.ts "$GITHUB_REF_NAME"
 
       - name: Test, build, and publish
         run: pnpm -F @gkd-kit/selector publish --no-git-checks --fail-if-no-match

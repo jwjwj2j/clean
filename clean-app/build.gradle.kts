@@ -139,8 +139,8 @@ composeCompiler {
 dependencies {
     implementation(libs.kotlin.stdlib)
 
-    implementation(project(":gkd-db"))
-    implementation(project(":gkd-selector"))
+    implementation(project(":clean-db"))
+    implementation(project(":clean-selector"))
 
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
@@ -166,7 +166,7 @@ dependencies {
 
     implementation(libs.androidx.concurrent.futures)
 
-    remapApi(project(":gkd-hidden-api"))
+    remapApi(project(":clean-hidden-api"))
     implementation(libs.rikka.shizuku.api)
     implementation(libs.rikka.shizuku.provider)
     implementation(libs.priv.kit.ui)

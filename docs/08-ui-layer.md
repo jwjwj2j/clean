@@ -1,5 +1,5 @@
 # UI 层（Compose）
-`gkd-app` 的 UI 层是一套 **单 Activity + Compose Material3 + Navigation3** 的实现：`MainActivity` 是唯一的 Compose 宿主，`AppRoot` 在其内部搭起主题、导航和全局弹窗三层结构，页面按功能纵向切分在 `feature/<name>` 与 `ui/` 两处。
+`clean-app` 的 UI 层是一套 **单 Activity + Compose Material3 + Navigation3** 的实现：`MainActivity` 是唯一的 Compose 宿主，`AppRoot` 在其内部搭起主题、导航和全局弹窗三层结构，页面按功能纵向切分在 `feature/<name>` 与 `ui/` 两处。
 
 本层的边界可以概括为三句话：
 
@@ -7,9 +7,9 @@
 - **ViewModel 负责页面一致性读取和明确的业务方法**，把 Room 冷 `Flow` 按页面边界聚合为 `StateFlow<Loadable<XxxUiState>>`。
 - **`MainViewModel` 是应用级唯一实例**，承载导航栈、全局弹窗、权限与 Activity Result 宿主；页面通过 `MainViewModel.requireCurrent()` 获取，不再使用 `LocalMainViewModel`。
 
-本文只描述 UI 层，写入侧的一致性边界见 `gkd-app/ARCHITECTURE.md`。
+本文只描述 UI 层，写入侧的一致性边界见 `clean-app/ARCHITECTURE.md`。
 ## 技术栈
-版本取自 `gradle/libs.versions.toml` 与 `gkd-app/build.gradle.kts`（未使用 Compose BOM，全部显式声明）。
+版本取自 `gradle/libs.versions.toml` 与 `clean-app/build.gradle.kts`（未使用 Compose BOM，全部显式声明）。
 
 | 领域 | 依赖 | 版本 |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ companion object {
 3. **不得在权限等待前后重新获取。** `permissionRequests.ensurePermissions(...)` 前后必须复用同一个 `mainVm`。
 4. **`requireCurrent()` 不得自行创建替代实例。** 它只做 `checkNotNull`；没有已绑定的 `MainActivity` 时应当快速失败，而不是退化为一个游离实例。
 
-`LocalMainViewModel` 已废弃：`gkd-app` 中不存在其定义或引用，只有 `AGENTS.md` 等规范文档保留「不再使用」的说明。应用级操作（导航、全局弹窗、打开 URL、权限）统一通过 `requireCurrent()` 获取，不再逐层转发。
+`LocalMainViewModel` 已废弃：`clean-app` 中不存在其定义或引用，只有 `AGENTS.md` 等规范文档保留「不再使用」的说明。应用级操作（导航、全局弹窗、打开 URL、权限）统一通过 `requireCurrent()` 获取，不再逐层转发。
 
 可复用组件不得获取页面 ViewModel：`ui/component/**` 只接收状态与事件回调（例如 `GkRuleGroupCard` 接收 `group`、`control`、`onOpen`、`onSettingChange`）。路由页面及其私有 Composable 可以直接 `viewModel<XxxVm>()` 并处理权限与 Activity Result。
 ## 页面清单
@@ -229,7 +229,7 @@ flowchart TD
 ### 3. ViewModel 可变状态必须 `private`
 只暴露不可变状态和明确的业务方法。反例与正例对照：`AppListVm` 的 `editWhiteListModeFlow`、`showSearchBarFlow`、`filterBlockAppListFlow` 都是 `private`，页面的编辑缓冲区不会泄漏为公开可变入口。
 ### 4. 只读 `StateFlow` 使用 Explicit Backing Fields
-禁止 `_xxxFlow` / `xxxFlow` 双属性和 `.asStateFlow()`（`gkd-app` 中当前没有任何 `.asStateFlow()` 调用）。统一写成：
+禁止 `_xxxFlow` / `xxxFlow` 双属性和 `.asStateFlow()`（`clean-app` 中当前没有任何 `.asStateFlow()` 调用）。统一写成：
 
 ```kotlin
 val termsStepFlow: StateFlow<Int>
@@ -382,7 +382,7 @@ item(ListPlaceholder.KEY, ListPlaceholder.TYPE) {
 ## 文案体系
 ```mermaid
 flowchart LR
-    A["gkd-app/src/main/res/values/strings.xml<br/>（唯一文案源）"] --> B["buildSrc: GenerateUiStringsTask<br/>task: generateUiStrings"]
+    A["clean-app/src/main/res/values/strings.xml<br/>（唯一文案源）"] --> B["buildSrc: GenerateUiStringsTask<br/>task: generateUiStrings"]
     B --> C["build/generated/source/uiStrings<br/>li/gkd/app/text/UiStrings.kt"]
     C --> D["li.gkd.app.text.UiStrings"]
     A --> E["buildSrc: readDebugSuffixResources()"]
@@ -391,8 +391,8 @@ flowchart LR
     D --> H["Compose 页面 / 通知 / ViewModel / 纯 Kotlin 规则逻辑<br/>无需 Android Context"]
 ```
 ### 生成链路
-1. 唯一文案源是 `gkd-app/src/main/res/values/strings.xml`（用户可见的标题、按钮、副文案、Toast、通知、无障碍描述和校验提示都放这里；日志、内部诊断、协议字段、URL、动画调试标签和用户输入不属于固定 UI 文案）。
-2. `gkd-app/build.gradle.kts` 注册 `generateUiStrings`，输入 `src/main/res/values/strings.xml`，输出目录 `build/generated/source/uiStrings`，并通过 `variant.sources.java?.addGeneratedSourceDirectory(...)` 挂到每个变体。
+1. 唯一文案源是 `clean-app/src/main/res/values/strings.xml`（用户可见的标题、按钮、副文案、Toast、通知、无障碍描述和校验提示都放这里；日志、内部诊断、协议字段、URL、动画调试标签和用户输入不属于固定 UI 文案）。
+2. `clean-app/build.gradle.kts` 注册 `generateUiStrings`，输入 `src/main/res/values/strings.xml`，输出目录 `build/generated/source/uiStrings`，并通过 `variant.sources.java?.addGeneratedSourceDirectory(...)` 挂到每个变体。
 3. `buildSrc/src/main/kotlin/li/gkd/gradle/GenerateUiStringsTask.kt` 生成 `li/gkd/app/text/UiStrings.kt`：
    - 文件头固定为 `// Generated from res/values/strings.xml. Do not edit.`，包名 `li.gkd.app.text`，对象名 `UiStrings`。
    - 带 `debug_suffix` 属性的节点直接跳过，不生成访问器。
@@ -480,46 +480,46 @@ Text(UiStrings.app_count(apps.size))
 ## 关键文件索引
 | 仓库相对路径 | 职责 |
 | --- | --- |
-| `gkd-app/src/main/kotlin/li/gkd/app/MainActivity.kt` | 唯一 Compose 宿主：宿主绑定、`registerCurrent()`、边到边、顶栏 inset 修正、文件分享与下载保存 |
-| `gkd-app/src/main/kotlin/li/gkd/app/MainViewModel.kt` | 应用级状态：导航栈、全局弹窗/Sheet、权限与 Activity Result、`requireCurrent()`/`registerCurrent()`、`handleIntent` |
-| `gkd-app/src/main/kotlin/li/gkd/app/App.kt` | 进程入口：`Db`、Store、崩溃处理、各运行时组件初始化 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/app/AppRoot.kt` | 主题 + 导航 + 覆盖层 + 权限 UI 的根组合 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/app/MainNavigation.kt` | Navigation3 `NavDisplay`、`entryProvider`、页面过渡动画 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/app/AppOverlayHost.kt` | 条款对话框与全局弹窗/Sheet 统一渲染 |
-| `gkd-app/src/main/kotlin/li/gkd/app/entry/EntryActivity.kt` | 入口 Activity 转发基类（Intent 与 URI 授权保留）；子类为 `OpenFileActivity`、`OpenSchemeActivity`、`OpenTileActivity` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/HomePage.kt` | 首页容器：`BottomNavItem`、底栏、标签状态保存、双击回顶 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/DashboardPage.kt` | 仪表盘标签页，含 `DashboardVm` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/SubsManagePage.kt` | 订阅管理标签页（拖拽排序、多选、设置弹窗） |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/SubsManageVm.kt` | 订阅管理 UiState 聚合与订阅操作 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/AppListPage.kt` | 应用列表标签页 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/AppListVm.kt` | 应用列表 UiState（controls/content/environment 三段合并） |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/SettingsPage.kt` | 设置标签页 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/SettingsVm.kt` | 设置写入方法（主题、备份、文案、屏蔽名单） |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/ScaffoldExt.kt` | `ScaffoldExt`：标签页对外契约（navItem/modifier/topBar/FAB/content）；同目录另有 `BlockA11ySetupPage.kt`、`NotificationTextPage.kt`、`ActionToastPage.kt` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/GkIcon.kt` | `GkIcon`/`GkIconButton`/`getIconDefaultDesc`/`GkIcons` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/GkPageBottomSpace.kt` | 底部留白组件与默认高度 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/ListInteractionState.kt` | `MultiSelectionState`、`ReorderSession` 及其 `remember` 封装 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/Hooks.kt` | `useSubs`、滚动状态、`autoFocus`、`textSize`、`isFullVisible` 等复用 Hook；同目录 `Animation.kt` 提供 `usePercentAnimatable` 与 `Modifier.animateListItem` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/share/BaseViewModel.kt` | `stateInit`/`stateLoadable`/`mapNew`/`requiredSubscription` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/share/EditorSaveSession.kt` | 编辑器「只提交一次」会话 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/share/DeletionTarget.kt` | 删除目标的路由归属判定 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/share/RequiredSubscription.kt` | 按订阅 id 的 `Loadable` 状态与 `buildUiState` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/share/AppFilter.kt` | 应用列表筛选/排序/分组的复用实现 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/share/ActivityResultRequests.kt` | 挂起式 Activity Result 请求与宿主绑定 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/share/ActivityImeController.kt` | IME 显隐与动画状态 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/share/FixedWindowInsets.kt` | 稳定化的 WindowInsets 包装；同目录 `ListPlaceholder.kt` 定义列表末尾占位 item 的固定 key/type，`LocalExt.kt` 提供 `LocalDarkTheme` 与 `LocalIsTalkbackEnabled` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/style/Theme.kt` | `AppTheme` 与颜色过渡动画 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/style/Padding.kt` | 间距常量与 Modifier 扩展；同目录 `Color.kt`（`surfaceCardColors`、JSON5 高亮）、`TextTransformation.kt`（JSON5 `VisualTransformation`）、`Typography.kt`（数字等宽特性） |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/icon/GkAnimatedRocketIcon.kt` | 动画/形变图标族样板（配合 `ui/icon` 下每文件一个 `ImageVector` 的自定义图标） |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/snapshot/SnapshotVm.kt` | 快照 UiState、删除与归档；同目录 `SnapshotGrouping.kt` 提供 `SnapshotGroup`/`buildSnapshotGroups`，`SnapshotActionHandler.kt` 承担单项分享/保存等动作，`SnapshotUploadItem.kt`、`GkSnapshotActionsSheet.kt` 分别构造上传项与操作弹窗 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/log/*Vm.kt` | 三类日志的 Paging `pagingDataFlow` |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/settings/AdvancedVm.kt`、`WorkModeVm.kt` | 高级设置与工作模式页面的操作入口 |
-| `gkd-app/src/main/res/values/strings.xml` | 文案唯一来源（含 `debug_suffix` 平台标签） |
-| `gkd-app/STRINGS.md` | 文案体系规范 |
+| `clean-app/src/main/kotlin/li/gkd/app/MainActivity.kt` | 唯一 Compose 宿主：宿主绑定、`registerCurrent()`、边到边、顶栏 inset 修正、文件分享与下载保存 |
+| `clean-app/src/main/kotlin/li/gkd/app/MainViewModel.kt` | 应用级状态：导航栈、全局弹窗/Sheet、权限与 Activity Result、`requireCurrent()`/`registerCurrent()`、`handleIntent` |
+| `clean-app/src/main/kotlin/li/gkd/app/App.kt` | 进程入口：`Db`、Store、崩溃处理、各运行时组件初始化 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/app/AppRoot.kt` | 主题 + 导航 + 覆盖层 + 权限 UI 的根组合 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/app/MainNavigation.kt` | Navigation3 `NavDisplay`、`entryProvider`、页面过渡动画 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/app/AppOverlayHost.kt` | 条款对话框与全局弹窗/Sheet 统一渲染 |
+| `clean-app/src/main/kotlin/li/gkd/app/entry/EntryActivity.kt` | 入口 Activity 转发基类（Intent 与 URI 授权保留）；子类为 `OpenFileActivity`、`OpenSchemeActivity`、`OpenTileActivity` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/HomePage.kt` | 首页容器：`BottomNavItem`、底栏、标签状态保存、双击回顶 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/DashboardPage.kt` | 仪表盘标签页，含 `DashboardVm` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/SubsManagePage.kt` | 订阅管理标签页（拖拽排序、多选、设置弹窗） |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/SubsManageVm.kt` | 订阅管理 UiState 聚合与订阅操作 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/AppListPage.kt` | 应用列表标签页 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/AppListVm.kt` | 应用列表 UiState（controls/content/environment 三段合并） |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/SettingsPage.kt` | 设置标签页 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/SettingsVm.kt` | 设置写入方法（主题、备份、文案、屏蔽名单） |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/ScaffoldExt.kt` | `ScaffoldExt`：标签页对外契约（navItem/modifier/topBar/FAB/content）；同目录另有 `BlockA11ySetupPage.kt`、`NotificationTextPage.kt`、`ActionToastPage.kt` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/GkIcon.kt` | `GkIcon`/`GkIconButton`/`getIconDefaultDesc`/`GkIcons` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/GkPageBottomSpace.kt` | 底部留白组件与默认高度 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/ListInteractionState.kt` | `MultiSelectionState`、`ReorderSession` 及其 `remember` 封装 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/Hooks.kt` | `useSubs`、滚动状态、`autoFocus`、`textSize`、`isFullVisible` 等复用 Hook；同目录 `Animation.kt` 提供 `usePercentAnimatable` 与 `Modifier.animateListItem` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/share/BaseViewModel.kt` | `stateInit`/`stateLoadable`/`mapNew`/`requiredSubscription` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/share/EditorSaveSession.kt` | 编辑器「只提交一次」会话 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/share/DeletionTarget.kt` | 删除目标的路由归属判定 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/share/RequiredSubscription.kt` | 按订阅 id 的 `Loadable` 状态与 `buildUiState` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/share/AppFilter.kt` | 应用列表筛选/排序/分组的复用实现 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/share/ActivityResultRequests.kt` | 挂起式 Activity Result 请求与宿主绑定 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/share/ActivityImeController.kt` | IME 显隐与动画状态 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/share/FixedWindowInsets.kt` | 稳定化的 WindowInsets 包装；同目录 `ListPlaceholder.kt` 定义列表末尾占位 item 的固定 key/type，`LocalExt.kt` 提供 `LocalDarkTheme` 与 `LocalIsTalkbackEnabled` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/style/Theme.kt` | `AppTheme` 与颜色过渡动画 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/style/Padding.kt` | 间距常量与 Modifier 扩展；同目录 `Color.kt`（`surfaceCardColors`、JSON5 高亮）、`TextTransformation.kt`（JSON5 `VisualTransformation`）、`Typography.kt`（数字等宽特性） |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/icon/GkAnimatedRocketIcon.kt` | 动画/形变图标族样板（配合 `ui/icon` 下每文件一个 `ImageVector` 的自定义图标） |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/snapshot/SnapshotVm.kt` | 快照 UiState、删除与归档；同目录 `SnapshotGrouping.kt` 提供 `SnapshotGroup`/`buildSnapshotGroups`，`SnapshotActionHandler.kt` 承担单项分享/保存等动作，`SnapshotUploadItem.kt`、`GkSnapshotActionsSheet.kt` 分别构造上传项与操作弹窗 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/log/*Vm.kt` | 三类日志的 Paging `pagingDataFlow` |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/settings/AdvancedVm.kt`、`WorkModeVm.kt` | 高级设置与工作模式页面的操作入口 |
+| `clean-app/src/main/res/values/strings.xml` | 文案唯一来源（含 `debug_suffix` 平台标签） |
+| `clean-app/STRINGS.md` | 文案体系规范 |
 | `buildSrc/src/main/kotlin/li/gkd/gradle/GenerateUiStringsTask.kt` | `UiStrings` 生成器 |
 | `buildSrc/src/main/kotlin/li/gkd/gradle/DebugSuffixResources.kt` | debug 变体文案后缀注入 |
-| `gkd-app/src/test/kotlin/li/gkd/app/ui/component/MultiSelectionStateTest.kt` | 多选状态契约回归 |
-| `gkd-app/src/test/kotlin/li/gkd/app/ui/component/ReorderSessionTest.kt` | 拖拽排序会话契约回归 |
-| `gkd-app/src/test/kotlin/li/gkd/app/ui/share/DeletionTargetTest.kt` | 删除目标路由归属回归 |
-| `gkd-app/src/test/kotlin/li/gkd/app/ui/share/EditorSaveSessionTest.kt` | 保存会话一次性语义回归 |
-| `gkd-app/src/test/kotlin/li/gkd/app/text/UiStringsFormattingTest.kt` | 文案格式化与模板占位符回归 |
+| `clean-app/src/test/kotlin/li/gkd/app/ui/component/MultiSelectionStateTest.kt` | 多选状态契约回归 |
+| `clean-app/src/test/kotlin/li/gkd/app/ui/component/ReorderSessionTest.kt` | 拖拽排序会话契约回归 |
+| `clean-app/src/test/kotlin/li/gkd/app/ui/share/DeletionTargetTest.kt` | 删除目标路由归属回归 |
+| `clean-app/src/test/kotlin/li/gkd/app/ui/share/EditorSaveSessionTest.kt` | 保存会话一次性语义回归 |
+| `clean-app/src/test/kotlin/li/gkd/app/text/UiStringsFormattingTest.kt` | 文案格式化与模板占位符回归 |

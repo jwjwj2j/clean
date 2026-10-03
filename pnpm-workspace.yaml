@@ -1,4 +1,4 @@
 packages:
-  - gkd-selector
+  - clean-selector
 minimumReleaseAgeExclude:
   - regex-wasm@0.1.1

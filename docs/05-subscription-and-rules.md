@@ -13,7 +13,7 @@ GKD 自身**不内置任何点击规则**。刚安装的 GKD 没有任何自动�
 规则文件（RawSubscription，作者产物） + 用户配置（数据库表） = ResolvedGroup / ResolvedRule（运行时生效规则）
 ```
 
-`gkd-app/ARCHITECTURE.md` 的「状态与写入边界」表把链路固化为：读取走 `SubscriptionRepository.snapshotFlow`、`SubscriptionState` 派生状态与 DAO 冷 `Flow`；订阅写入由 `SubscriptionRepository` 编排、`SubscriptionPersistence` 保证文件与数据库补偿一致、`SubscriptionFileStore` 负责原子文件写入；规则配置的跨表操作统一走 `RuleGroupConfigService`。本文逐条对照代码验证了该表。
+`clean-app/ARCHITECTURE.md` 的「状态与写入边界」表把链路固化为：读取走 `SubscriptionRepository.snapshotFlow`、`SubscriptionState` 派生状态与 DAO 冷 `Flow`；订阅写入由 `SubscriptionRepository` 编排、`SubscriptionPersistence` 保证文件与数据库补偿一致、`SubscriptionFileStore` 负责原子文件写入；规则配置的跨表操作统一走 `RuleGroupConfigService`。本文逐条对照代码验证了该表。
 
 ## 概念模型
 
@@ -99,7 +99,7 @@ classDiagram
 | `UpsertRuleGroupVm` → `SubscriptionInputParser.parse(text, groupKey)` | 粘贴的 JSON5 片段（应用对象 / 应用组 / 全局组） |
 | `SubsAppGroupListVm.buildSelectedGroupsText` | 选中规则组转为 JSON5 文本复制走 |
 
-短链常量 `IMPORT_SHORT_URL = "https://i.gkd.li/i/"`（`gkd-app/src/main/kotlin/li/gkd/app/util/Constants.kt`）**只用于快照分享链接**（`feature/snapshot/**`）；`gkd://` scheme 只用于应用内页面跳转（`AndroidManifest.xml` 的 `android:value="gkd://page"` 家族）。两者都不经过订阅解析路径，也不存在剪贴板自动导入——订阅输入解析只有「网络 URL」与「JSON5 文本」两种真实形式。
+短链常量 `IMPORT_SHORT_URL = "https://i.gkd.li/i/"`（`clean-app/src/main/kotlin/li/gkd/app/util/Constants.kt`）**只用于快照分享链接**（`feature/snapshot/**`）；`gkd://` scheme 只用于应用内页面跳转（`AndroidManifest.xml` 的 `android:value="gkd://page"` 家族）。两者都不经过订阅解析路径，也不存在剪贴板自动导入——订阅输入解析只有「网络 URL」与「JSON5 文本」两种真实形式。
 
 **`SubscriptionInputParser`** 是规则片段级解析器（非订阅级），把 JSON5 归一化为 `RawSubscription.RawApp` / `RawAppGroup` / `RawGlobalGroup`：
 
@@ -436,9 +436,9 @@ UI 据此区分状态：`subscriptions` 有值 → 正常；否则看 `loadError
 
 ## 数据库表结构
 
-字段与主键取自 Kotlin 实体，并与 `gkd-db/schemas/li.gkd.db.AppDb/16.json` 的 `createSql` 交叉验证。
+字段与主键取自 Kotlin 实体，并与 `clean-db/schemas/li.gkd.db.AppDb/16.json` 的 `createSql` 交叉验证。
 
-| 表 | 实体文件（`gkd-db/src/commonMain/kotlin/li/gkd/db/`） | 主键 | schema 16 |
+| 表 | 实体文件（`clean-db/src/commonMain/kotlin/li/gkd/db/`） | 主键 | schema 16 |
 | --- | --- | --- | --- |
 | `subs_item` | `SubsItem.kt` | `id` | ``(`id` INTEGER NOT NULL, `ctime` INTEGER NOT NULL, `mtime` INTEGER NOT NULL, `enable` INTEGER NOT NULL, `enable_update` INTEGER NOT NULL, `order` INTEGER NOT NULL, `update_url` TEXT, PRIMARY KEY(`id`))`` |
 | `subs_app_config` | `SubsAppConfig.kt` | `(subs_id, app_id)` | ``(`enable` INTEGER NOT NULL, `subs_id` INTEGER NOT NULL, `app_id` TEXT NOT NULL, PRIMARY KEY(`subs_id`, `app_id`), FOREIGN KEY(`subs_id`) REFERENCES `subs_item`(`id`) ON DELETE CASCADE)`` |
@@ -463,13 +463,13 @@ UI 据此区分状态：`subscriptions` 有值 → 正常；否则看 `loadError
 
 `SubsAppGroupConfig` 与 `SubsGlobalGroupConfig` 实现 `SubsGroupConfig`（`subsId` / `groupKey` / `enable` / `exclude`），并配合 `withEnable` / `withExclude` 扩展做不可变更新。
 
-`RuleGroupType` 不是表而是协议常量（`gkd-db/src/commonMain/kotlin/li/gkd/db/RuleGroupType.kt`）：`const val App = 2`、`const val Global = 3`，注释要求保持稳定；`RuleGroupTarget.groupType`、`RawGroupProps.groupType` 与动作日志的 `group_type` 列都使用这组值。
+`RuleGroupType` 不是表而是协议常量（`clean-db/src/commonMain/kotlin/li/gkd/db/RuleGroupType.kt`）：`const val App = 2`、`const val Global = 3`，注释要求保持稳定；`RuleGroupTarget.groupType`、`RawGroupProps.groupType` 与动作日志的 `group_type` 列都使用这组值。
 
 `SubscriptionConfigStore` 也不是表，而是上述 5 张表的事务化访问层：`SubscriptionConfigSnapshot` 承载一次性读取结果，`observe()` 提供失效追踪流，`capture()` 提供只读事务快照，`setAppEnabled` / `updateAppGroupConfig` / `updateGlobalGroupConfig` 提供写事务，`merge(snapshot)` 用于备份合并（`insertOrIgnore` + 过滤孤儿，返回跳过的孤儿数），`restore(snapshot)` 用于备份恢复（先删不在快照中的行，再 `upsert` 全部行）。
 
 ## UI 页面地图
 
-导航注册见 `gkd-app/src/main/kotlin/li/gkd/app/ui/app/MainNavigation.kt`（第 104–117 行）。
+导航注册见 `clean-app/src/main/kotlin/li/gkd/app/ui/app/MainNavigation.kt`（第 104–117 行）。
 
 | 页面 / 组件 | 路由类型 | 导航入口 | 作用 |
 | --- | --- | --- | --- |
@@ -504,48 +504,48 @@ UI 据此区分状态：`subscriptions` 有值 → 正常；否则看 `loadError
 
 | 路径 | 职责 |
 | --- | --- |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/RawSubscription.kt` | 订阅与规则数据模型、JSON5 解析、选择器校验、分类与全局组投影 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/SubscriptionInputParser.kt` | 规则片段级 JSON5 解析，补 `key`、校验 `appId`、产出 `RawApp` / `RawAppGroup` / `RawGlobalGroup` |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/SubscriptionEditor.kt` | 订阅级不可变编辑器：一次快照多处修改、key 重编号、名称去重、编辑冲突检测 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/SubsVersion.kt` / `SubsItemExt.kt` | `checkUpdateUrl` 响应体 `SubsVersion(id, version)` / `SubsItem.mtimeStr` 格式化扩展 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/ResolvedGroup.kt` / `ResolvedRule.kt` | 规则组与订阅 / 配置的配对；属性继承、选择器编译、跨组共享、运行状态与 `RuleStatus` |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/AppRule.kt` / `GlobalRule.kt` | 应用规则与全局规则的 `matchActivity`、版本匹配、应用范围映射 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/ExcludeData.kt` | 排除数据模型、文本双向转换、应用级 / 页面级开关 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/GkdAction.kt` / `NodeInfo.kt` / `ComplexSnapshot.kt` | 动作执行体、节点信息、复杂快照模型 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionEntry.kt` | `SubsEntry` / `UsedSubsEntry` 与 `checkUpdateUrl` 相对地址解析 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionFileStore.kt` | `<filesDir>/subscription/<id>.json` 的加载、`AtomicFile` 原子写、删除与还原 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionPersistence.kt` | 文件与数据库补偿一致性：`save` 回滚、`delete` 分阶段还原、孤儿配置清理 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionRepository.kt` | 订阅用例编排：初始化、增删改、刷新、版本探测、互斥锁与快照维护 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionSnapshot.kt` / `SubscriptionResult.kt` / `SubscriptionState.kt` | 三表快照 / 统一返回值与枚举 / 派生状态流与 `ruleSummaryFlow` |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/ruleconfig/RuleGroupConfigService.kt` | 规则配置服务：单组配置流、分类批量设置、排除写入、批量开关 `prepare` / `apply` |
-| `gkd-app/src/main/kotlin/li/gkd/app/domain/rule/RuleGroupPolicy.kt` | 默认值与来源解释、`controlState`、全局组 × 应用判定 |
-| `gkd-app/src/main/kotlin/li/gkd/app/domain/rule/RuleSwitchPolicy.kt` | 开关写入策略：规则组直接写 `enable`，全局组按应用写入取反排除表 |
-| `gkd-app/src/main/kotlin/li/gkd/app/domain/rule/RuleScopePolicy.kt` | 纯适用范围判定：activity 前缀、版本匹配、全局组默认与 `matchGlobalActivity` |
-| `gkd-app/src/main/kotlin/li/gkd/app/domain/rule/CategoryPolicy.kt` | 分类四态设置映射与新增 / 编辑校验 |
-| `gkd-app/src/main/kotlin/li/gkd/app/domain/rule/RuleSetting.kt` / `RuleGroupTarget.kt` | `RuleSetting` 三态、`RuleSwitchTarget`、`RuleConfigIndex`、`RuleControlState` / `RuleGroupTarget` 派发 |
-| `gkd-app/src/main/kotlin/li/gkd/app/domain/rule/RuleLimitations.kt` | 限制条目解析、`appliesTo` 合并、阻断计数与原因 |
-| `gkd-app/src/main/kotlin/li/gkd/app/domain/rule/RuleSummary.kt` / `RuleSummaryBuilder.kt` | 规则汇总只读结构与纯函数构建 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsAppListPage.kt` / `SubsAppListVm.kt` | 应用维度规则列表页与状态 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsAppGroupListPage.kt` / `SubsAppGroupListVm.kt` | 单应用规则组页；应用开关、批量开关、导出文本 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsGlobalGroupListPage.kt` / `SubsGlobalGroupListVm.kt` | 全局组列表页与批量操作 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsGlobalGroupExcludePage.kt` / `SubsGlobalGroupExcludeVm.kt` | 全局组 × 应用开关页 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsCategoryPage.kt` / `SubsCategoryVm.kt` | 分类列表页与分类级开关 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsCategoryGroupPage.kt` / `SubsCategoryGroupVm.kt` | 分类下的应用与规则组页 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/CategoryEditorPage.kt` / `CategoryEditorVm.kt` | 分类新增 / 编辑页 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/RuleExcludeEditorPage.kt` / `RuleExcludeEditorVm.kt` | 规则组排除文本编辑页 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/UpsertRuleGroupPage.kt` / `UpsertRuleGroupVm.kt` | 规则组新增 / 编辑页（JSON5 文本） |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/RuleGroupState.kt` / `RuleGroupDialog.kt` | 规则组详情 sheet 与内容；`RuleControlDialogState.kt` / `GkRuleControlDialog.kt` 为单组控制台 |
-| `gkd-app/src/main/kotlin/li/gkd/app/feature/subscription/`（其余） | `GkCategoryActionsSheet.kt` / `SubsLinkDialogState.kt` / `SubsSheetState.kt` / `CategorySettingExt.kt`：分类动作面板 / 链接对话框 / 订阅详情 sheet / 分类图标映射 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/home/SubsManagePage.kt` / `SubsManageVm.kt` | 订阅管理主页与状态 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/component/`（订阅相关） | `GkSubscriptionPageContent.kt` 状态门面；`GkSubsItemCard.kt` / `GkSubsAppCard.kt` / `GkRuleGroupCard.kt` / `GkRuleListItem.kt` 卡片；`GkRuleEnableControl.kt` / `GkRuleProperty.kt` / `GkRuleSettingsSheet.kt` / `GkTriStateSwitch.kt` 开关与属性组件 |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsItem.kt` | `subs_item` 实体、本地订阅常量、`SubsItemDao` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsAppConfig.kt` | `subs_app_config` 实体与应用总开关 DAO |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsAppGroupConfig.kt` / `SubsGlobalGroupConfig.kt` / `SubsCategoryConfig.kt` | 三类规则配置实体、主键与外键定义及其 DAO |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubsGroupConfig.kt` | 规则组配置公共接口与 `withEnable` / `withExclude` |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/RuleGroupType.kt` | 规则组类型协议常量（`App = 2` / `Global = 3`） |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/SubscriptionConfigStore.kt` | 5 张配置表的事务化读写、快照捕获、备份合并与恢复 |
-| `gkd-db/schemas/li.gkd.db.AppDb/16.json` | 当前数据库 schema，用于交叉验证表结构与主键 |
-| `gkd-app/src/test/kotlin/li/gkd/app/data/SubscriptionEditorTest.kt` | 编辑器行为测试（一次快照多处修改、缺失节点不创建、删除最后一个规则组） |
-| `gkd-app/src/test/kotlin/li/gkd/app/data/SubscriptionInputParserTest.kt` | 输入解析测试（默认 key、唯一 key 分配、引号数字 key 保留） |
-| `gkd-app/src/test/kotlin/li/gkd/app/domain/rule/`（6 个测试） | `RuleGroupPolicyTest` 优先级与来源、`RuleSwitchPolicyTest` 开关写入、`CategoryPolicyTest` 分类映射、`RuleScopePolicyTest` 适用范围、`RuleSummaryBuilderTest` 汇总构建、`RulePropertyStateTest` 属性状态 |
-| `gkd-app/ARCHITECTURE.md` | 模块分层、状态与写入边界、并发约定；本文第 7 节的对照依据 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/RawSubscription.kt` | 订阅与规则数据模型、JSON5 解析、选择器校验、分类与全局组投影 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/SubscriptionInputParser.kt` | 规则片段级 JSON5 解析，补 `key`、校验 `appId`、产出 `RawApp` / `RawAppGroup` / `RawGlobalGroup` |
+| `clean-app/src/main/kotlin/li/gkd/app/data/SubscriptionEditor.kt` | 订阅级不可变编辑器：一次快照多处修改、key 重编号、名称去重、编辑冲突检测 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/SubsVersion.kt` / `SubsItemExt.kt` | `checkUpdateUrl` 响应体 `SubsVersion(id, version)` / `SubsItem.mtimeStr` 格式化扩展 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/ResolvedGroup.kt` / `ResolvedRule.kt` | 规则组与订阅 / 配置的配对；属性继承、选择器编译、跨组共享、运行状态与 `RuleStatus` |
+| `clean-app/src/main/kotlin/li/gkd/app/data/AppRule.kt` / `GlobalRule.kt` | 应用规则与全局规则的 `matchActivity`、版本匹配、应用范围映射 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/ExcludeData.kt` | 排除数据模型、文本双向转换、应用级 / 页面级开关 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/GkdAction.kt` / `NodeInfo.kt` / `ComplexSnapshot.kt` | 动作执行体、节点信息、复杂快照模型 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionEntry.kt` | `SubsEntry` / `UsedSubsEntry` 与 `checkUpdateUrl` 相对地址解析 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionFileStore.kt` | `<filesDir>/subscription/<id>.json` 的加载、`AtomicFile` 原子写、删除与还原 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionPersistence.kt` | 文件与数据库补偿一致性：`save` 回滚、`delete` 分阶段还原、孤儿配置清理 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionRepository.kt` | 订阅用例编排：初始化、增删改、刷新、版本探测、互斥锁与快照维护 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionSnapshot.kt` / `SubscriptionResult.kt` / `SubscriptionState.kt` | 三表快照 / 统一返回值与枚举 / 派生状态流与 `ruleSummaryFlow` |
+| `clean-app/src/main/kotlin/li/gkd/app/data/ruleconfig/RuleGroupConfigService.kt` | 规则配置服务：单组配置流、分类批量设置、排除写入、批量开关 `prepare` / `apply` |
+| `clean-app/src/main/kotlin/li/gkd/app/domain/rule/RuleGroupPolicy.kt` | 默认值与来源解释、`controlState`、全局组 × 应用判定 |
+| `clean-app/src/main/kotlin/li/gkd/app/domain/rule/RuleSwitchPolicy.kt` | 开关写入策略：规则组直接写 `enable`，全局组按应用写入取反排除表 |
+| `clean-app/src/main/kotlin/li/gkd/app/domain/rule/RuleScopePolicy.kt` | 纯适用范围判定：activity 前缀、版本匹配、全局组默认与 `matchGlobalActivity` |
+| `clean-app/src/main/kotlin/li/gkd/app/domain/rule/CategoryPolicy.kt` | 分类四态设置映射与新增 / 编辑校验 |
+| `clean-app/src/main/kotlin/li/gkd/app/domain/rule/RuleSetting.kt` / `RuleGroupTarget.kt` | `RuleSetting` 三态、`RuleSwitchTarget`、`RuleConfigIndex`、`RuleControlState` / `RuleGroupTarget` 派发 |
+| `clean-app/src/main/kotlin/li/gkd/app/domain/rule/RuleLimitations.kt` | 限制条目解析、`appliesTo` 合并、阻断计数与原因 |
+| `clean-app/src/main/kotlin/li/gkd/app/domain/rule/RuleSummary.kt` / `RuleSummaryBuilder.kt` | 规则汇总只读结构与纯函数构建 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsAppListPage.kt` / `SubsAppListVm.kt` | 应用维度规则列表页与状态 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsAppGroupListPage.kt` / `SubsAppGroupListVm.kt` | 单应用规则组页；应用开关、批量开关、导出文本 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsGlobalGroupListPage.kt` / `SubsGlobalGroupListVm.kt` | 全局组列表页与批量操作 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsGlobalGroupExcludePage.kt` / `SubsGlobalGroupExcludeVm.kt` | 全局组 × 应用开关页 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsCategoryPage.kt` / `SubsCategoryVm.kt` | 分类列表页与分类级开关 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/SubsCategoryGroupPage.kt` / `SubsCategoryGroupVm.kt` | 分类下的应用与规则组页 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/CategoryEditorPage.kt` / `CategoryEditorVm.kt` | 分类新增 / 编辑页 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/RuleExcludeEditorPage.kt` / `RuleExcludeEditorVm.kt` | 规则组排除文本编辑页 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/UpsertRuleGroupPage.kt` / `UpsertRuleGroupVm.kt` | 规则组新增 / 编辑页（JSON5 文本） |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/RuleGroupState.kt` / `RuleGroupDialog.kt` | 规则组详情 sheet 与内容；`RuleControlDialogState.kt` / `GkRuleControlDialog.kt` 为单组控制台 |
+| `clean-app/src/main/kotlin/li/gkd/app/feature/subscription/`（其余） | `GkCategoryActionsSheet.kt` / `SubsLinkDialogState.kt` / `SubsSheetState.kt` / `CategorySettingExt.kt`：分类动作面板 / 链接对话框 / 订阅详情 sheet / 分类图标映射 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/home/SubsManagePage.kt` / `SubsManageVm.kt` | 订阅管理主页与状态 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/component/`（订阅相关） | `GkSubscriptionPageContent.kt` 状态门面；`GkSubsItemCard.kt` / `GkSubsAppCard.kt` / `GkRuleGroupCard.kt` / `GkRuleListItem.kt` 卡片；`GkRuleEnableControl.kt` / `GkRuleProperty.kt` / `GkRuleSettingsSheet.kt` / `GkTriStateSwitch.kt` 开关与属性组件 |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsItem.kt` | `subs_item` 实体、本地订阅常量、`SubsItemDao` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsAppConfig.kt` | `subs_app_config` 实体与应用总开关 DAO |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsAppGroupConfig.kt` / `SubsGlobalGroupConfig.kt` / `SubsCategoryConfig.kt` | 三类规则配置实体、主键与外键定义及其 DAO |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubsGroupConfig.kt` | 规则组配置公共接口与 `withEnable` / `withExclude` |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/RuleGroupType.kt` | 规则组类型协议常量（`App = 2` / `Global = 3`） |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/SubscriptionConfigStore.kt` | 5 张配置表的事务化读写、快照捕获、备份合并与恢复 |
+| `clean-db/schemas/li.gkd.db.AppDb/16.json` | 当前数据库 schema，用于交叉验证表结构与主键 |
+| `clean-app/src/test/kotlin/li/gkd/app/data/SubscriptionEditorTest.kt` | 编辑器行为测试（一次快照多处修改、缺失节点不创建、删除最后一个规则组） |
+| `clean-app/src/test/kotlin/li/gkd/app/data/SubscriptionInputParserTest.kt` | 输入解析测试（默认 key、唯一 key 分配、引号数字 key 保留） |
+| `clean-app/src/test/kotlin/li/gkd/app/domain/rule/`（6 个测试） | `RuleGroupPolicyTest` 优先级与来源、`RuleSwitchPolicyTest` 开关写入、`CategoryPolicyTest` 分类映射、`RuleScopePolicyTest` 适用范围、`RuleSummaryBuilderTest` 汇总构建、`RulePropertyStateTest` 属性状态 |
+| `clean-app/ARCHITECTURE.md` | 模块分层、状态与写入边界、并发约定；本文第 7 节的对照依据 |

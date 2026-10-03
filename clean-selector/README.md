@@ -6,7 +6,7 @@ The package requires a runtime with WebAssembly GC support. `regex-wasm` is init
 
 ## Workspace development
 
-Node.js projects in this repository can depend on `@gkd-kit/selector` through `workspace:*` without installing Java, Gradle, or Kotlin. Fetch the already-built `dist` directory for the exact version declared in `gkd-selector/package.json`:
+Node.js projects in this repository can depend on `@gkd-kit/selector` through `workspace:*` without installing Java, Gradle, or Kotlin. Fetch the already-built `dist` directory for the exact version declared in `clean-selector/package.json`:
 
 ```shell
 pnpm fetch-selector-dist
@@ -17,10 +17,10 @@ The command downloads the published npm package into a temporary directory, vali
 When changing selector Kotlin code, run the regular build instead; it replaces `dist` with output from the local sources:
 
 ```shell
-pnpm --dir gkd-selector build
+pnpm --dir clean-selector build
 ```
 
-`fetch-selector-dist` requires the version in `gkd-selector/package.json` to have already been published. It never falls back to another version.
+`fetch-selector-dist` requires the version in `clean-selector/package.json` to have already been published. It never falls back to another version.
 
 ## Release
 
@@ -31,7 +31,7 @@ Publishing uses npm Trusted Publishing from `.github/workflows/Publish-Selector.
 - Workflow filename: `Publish-Selector.yml`
 - Allowed action: `npm publish`
 
-For each release, update `gkd-selector/package.json` to the intended stable version, commit and push it, then create a tag with the exact package name and version:
+For each release, update `clean-selector/package.json` to the intended stable version, commit and push it, then create a tag with the exact package name and version:
 
 ```shell
 git tag -a '@gkd-kit/selector@0.6.0' -m '@gkd-kit/selector@0.6.0'

@@ -1,6 +1,6 @@
 # 开发约定与测试策略
 
-> 本文汇总仓库内三份「约定型」文档的硬性规则：根目录 `AGENTS.md`（仓库级强制约定）、`gkd-app/ARCHITECTURE.md`（分层与写入边界）、`gkd-app/STRINGS.md`（UI 文案）。
+> 本文汇总仓库内三份「约定型」文档的硬性规则：根目录 `AGENTS.md`（仓库级强制约定）、`clean-app/ARCHITECTURE.md`（分层与写入边界）、`clean-app/STRINGS.md`（UI 文案）。
 > 这些规则是**强制**的，不是建议；改动代码前请先通读对应章节。
 
 ## 1. 规则来源与优先级
@@ -8,9 +8,9 @@
 | 文档 | 覆盖范围 |
 | --- | --- |
 | `AGENTS.md` | XML 禁令、Kotlin 语言约定、Compose 状态边界、动画交互、构建与测试、测试策略、Android API 调研、特权进程异常边界、Git 操作 |
-| `gkd-app/ARCHITECTURE.md` | `gkd-app` 内部分层、目录职责、写入边界、并发模型、新代码放置 |
-| `gkd-app/STRINGS.md` | UI 文案的维护点、命名、转义与代码生成 |
-| `gkd-selector/README.md` | 选择器包的公开 API 与快照契约 |
+| `clean-app/ARCHITECTURE.md` | `clean-app` 内部分层、目录职责、写入边界、并发模型、新代码放置 |
+| `clean-app/STRINGS.md` | UI 文案的维护点、命名、转义与代码生成 |
+| `clean-selector/README.md` | 选择器包的公开 API 与快照契约 |
 | `skills-lock.json` + `.agents/skills/` | 项目级 skill 的锁定版本 |
 
 ## 2. XML 文件禁令
@@ -26,11 +26,11 @@
 | 同一图标同时用于平台配置和页面 | ⚠️ 平台配置用 XML，**页面仍必须用 Kotlin `ImageVector`** |
 | 无法确定是否属于例外场景 | ⚠️ 必须先向用户确认 |
 
-现状参考：`gkd-app/src/main/res/drawable/` 下只有 `ic_capture`、`ic_event_list`、`ic_flash_on`、`ic_http`、`ic_launcher*`、`ic_layers`、`ic_radio_button`、`ic_status` 等平台磁贴/启动图标；页面图标集中在 `li/gkd/app/ui/icon/`，以 Kotlin 声明。
+现状参考：`clean-app/src/main/res/drawable/` 下只有 `ic_capture`、`ic_event_list`、`ic_flash_on`、`ic_http`、`ic_launcher*`、`ic_layers`、`ic_radio_button`、`ic_status` 等平台磁贴/启动图标；页面图标集中在 `li/gkd/app/ui/icon/`，以 Kotlin 声明。
 
 ## 3. Kotlin 可见性
 
-- `gkd-app` 模块内**禁止使用 `internal`**。因为没有其他模块引用 `gkd-app`，对外可见的声明应省略可见性修饰符（即 Kotlin 默认 `public`），仅在需要收窄作用域时使用 `private`。
+- `clean-app` 模块内**禁止使用 `internal`**。因为没有其他模块引用 `clean-app`，对外可见的声明应省略可见性修饰符（即 Kotlin 默认 `public`），仅在需要收窄作用域时使用 `private`。
 - 与公开属性一一对应、仅用于收窄可见性或可变性的 `_xxx` backing property **必须改用 Explicit Backing Fields**。不禁止不存在这种直接对应关系的普通私有字段、缓存或生成代码风格命名。
 - 未使用的 Lambda 参数占位符 `_` 不受此限制。
 
@@ -61,7 +61,7 @@ object Catalog {
 
 ## 5. Kotlin 工具声明
 
-适用于 `gkd-app` 的 `util` 包：
+适用于 `clean-app` 的 `util` 包：
 
 | 声明类型 | 规则 |
 | --- | --- |
@@ -152,7 +152,7 @@ Composable 需要根据条件决定是否输出后续 UI 时，**禁止使用提
 
 ## 11. UI 文案
 
-唯一维护点：`gkd-app/src/main/res/values/strings.xml`。
+唯一维护点：`clean-app/src/main/res/values/strings.xml`。
 
 适用对象：用户可见的标题、按钮、副文案、Toast、通知、无障碍描述和校验提示。
 **不属于**固定 UI 文案：日志、内部诊断、协议字段、URL、动画调试标签、用户输入。
@@ -253,9 +253,9 @@ Composable 需要根据条件决定是否输出后续 UI 时，**禁止使用提
 
 | 位置 | 文件数 | 覆盖重点 |
 | --- | --- | --- |
-| `gkd-app/src/test/kotlin` | 30 | `domain/rule` 策略、`data` 解析与持久化、`priv` 兼容适配、`snapshot` 文件事务、`util` 工具、`ui/share` 会话状态 |
-| `gkd-db/src/jvmTest/kotlin` | 2 | Room 迁移（`AppDbMigrationTest`）、订阅配置写事务（`SubscriptionConfigStoreTest`） |
-| `gkd-selector/src/commonTest` + `jvmTest` + `jsTest` | 12 | 选择器语法、查询、优化、位置、类型、正则契约、冷启动 |
+| `clean-app/src/test/kotlin` | 30 | `domain/rule` 策略、`data` 解析与持久化、`priv` 兼容适配、`snapshot` 文件事务、`util` 工具、`ui/share` 会话状态 |
+| `clean-db/src/jvmTest/kotlin` | 2 | Room 迁移（`AppDbMigrationTest`）、订阅配置写事务（`SubscriptionConfigStoreTest`） |
+| `clean-selector/src/commonTest` + `jvmTest` + `jsTest` | 12 | 选择器语法、查询、优化、位置、类型、正则契约、冷启动 |
 | `androidTest` | 0 | 当前仓库没有 instrumented 测试目录 |
 
 ## 16. Android API 调研
@@ -293,24 +293,24 @@ Composable 需要根据条件决定是否输出后续 UI 时，**禁止使用提
 
 ## 18. 选择器包的额外契约
 
-`gkd-selector` 除上述通用规则外，还受自身 README 中的契约约束（详见 [03-selector-engine.md](03-selector-engine.md)）：
+`clean-selector` 除上述通用规则外，还受自身 README 中的契约约束（详见 [03-selector-engine.md](03-selector-engine.md)）：
 
 - `getNodeKey` 必须为相等节点返回相等 key、不同逻辑节点返回不等 key，且在一次操作内保持稳定（匹配器用它做回溯 memoization）。
 - 一次匹配操作观察**同一个稳定节点快照**；状态变化（包括刷新后的无障碍节点）只在下一次匹配操作可见。
 - Kotlin 与 JavaScript 的节点类型都必须非 `null`；`null` 保留给「不存在的父/子」与「匹配或查询失败」。
 - 快速查询（fast query）是**正确性敏感**的优化钩子：可以返回误报，但**不得遗漏**候选节点；顺序不做保证。
-- `gkd-selector` 开启 `explicitApi()`，新增公开声明必须显式标注可见性。
+- `clean-selector` 开启 `explicitApi()`，新增公开声明必须显式标注可见性。
 
 ## 19. 关键文件索引
 
 | 文件 | 职责 |
 | --- | --- |
 | `AGENTS.md` | 仓库级强制约定全文 |
-| `gkd-app/ARCHITECTURE.md` | 分层、写入边界、并发、新代码放置 |
-| `gkd-app/STRINGS.md` | UI 文案规范 |
-| `gkd-selector/README.md` | 选择器包 API 与快照契约 |
+| `clean-app/ARCHITECTURE.md` | 分层、写入边界、并发、新代码放置 |
+| `clean-app/STRINGS.md` | UI 文案规范 |
+| `clean-selector/README.md` | 选择器包 API 与快照契约 |
 | `.agents/skills/android-api-diff/SKILL.md` | Android API 调研流程 |
 | `skills-lock.json` | 项目级 skill 锁定 |
 | `stability_config.conf` | Compose 稳定性配置 |
-| `gkd-app/src/main/res/values/strings.xml` | UI 文案唯一维护点 |
+| `clean-app/src/main/res/values/strings.xml` | UI 文案唯一维护点 |
 | `buildSrc/src/main/kotlin/li/gkd/gradle/GenerateUiStringsTask.kt` | 文案代码生成的实现与校验 |

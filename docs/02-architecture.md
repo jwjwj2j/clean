@@ -1,7 +1,7 @@
 # 整体架构
 
 > 本文档描述模块划分、分层依赖、运行时数据流与并发模型。
-> `gkd-app/ARCHITECTURE.md` 是 `gkd-app` 内部层级的设计基线，本文在其之上补充跨模块视角；两者冲突时以源码为准。
+> `clean-app/ARCHITECTURE.md` 是 `clean-app` 内部层级的设计基线，本文在其之上补充跨模块视角；两者冲突时以源码为准。
 
 ## 1. 模块划分
 
@@ -9,11 +9,11 @@ Gradle 构建包含 4 个业务模块（`settings.gradle.kts`）：
 
 ```mermaid
 flowchart TD
-    app["gkd-app<br/>Android Application"]
+    app["clean-app<br/>Android Application"]
 
-    db["gkd-db<br/>Room3 KMP 库<br/>android + jvm"]
-    sel["gkd-selector<br/>KMP 库<br/>jvm + js"]
-    hid["gkd-hidden-api<br/>Android Library<br/>仅 Java 存根"]
+    db["clean-db<br/>Room3 KMP 库<br/>android + jvm"]
+    sel["clean-selector<br/>KMP 库<br/>jvm + js"]
+    hid["clean-hidden-api<br/>Android Library<br/>仅 Java 存根"]
 
     app -->|implementation| db
     app -->|implementation| sel
@@ -24,22 +24,22 @@ flowchart TD
 
 | 模块 | 插件 | 目标 | 职责 | 对外可见性 |
 | --- | --- | --- | --- | --- |
-| `gkd-app` | `com.android.application` + parcelize / serialization / compose / remap / codeorigin | Android only | 应用全部业务与 UI | `li.songe.gkd` |
-| `gkd-db` | `kotlin.multiplatform` + `com.android.kotlin.multiplatform.library` + `androidx.room3` + KSP | `android`、`jvm` | Room 实体、DAO、`AppDb`、迁移、订阅配置写事务 | `commonMain` 通过 `api` 暴露 Room runtime/paging/serialization |
-| `gkd-selector` | `kotlin.multiplatform`（`explicitApi()`） | `jvm`、`js(es2015, ESM, nodejs)` | 选择器解析、匹配、类型校验、语法高亮 | 严格显式 API + 生成的 TypeScript 声明 |
-| `gkd-hidden-api` | `com.android.library` | Android | Android framework 隐藏 API 的 Java 存根（`compileOnly` 语义） | namespace `hidden.api` |
+| `clean-app` | `com.android.application` + parcelize / serialization / compose / remap / codeorigin | Android only | 应用全部业务与 UI | `li.songe.gkd` |
+| `clean-db` | `kotlin.multiplatform` + `com.android.kotlin.multiplatform.library` + `androidx.room3` + KSP | `android`、`jvm` | Room 实体、DAO、`AppDb`、迁移、订阅配置写事务 | `commonMain` 通过 `api` 暴露 Room runtime/paging/serialization |
+| `clean-selector` | `kotlin.multiplatform`（`explicitApi()`） | `jvm`、`js(es2015, ESM, nodejs)` | 选择器解析、匹配、类型校验、语法高亮 | 严格显式 API + 生成的 TypeScript 声明 |
+| `clean-hidden-api` | `com.android.library` | Android | Android framework 隐藏 API 的 Java 存根（`compileOnly` 语义） | namespace `hidden.api` |
 | `buildSrc` | `kotlin-dsl` | JVM | 版本注入、代码生成、构建产物上传 | 仅构建期 |
 
 ### 1.1 模块间依赖的关键约定
 
-- `gkd-app` 是唯一的应用模块，**没有其他模块引用 `gkd-app`**。因此 `gkd-app` 内部禁止使用 `internal`（见 [10-conventions.md](10-conventions.md)）。
-- `gkd-hidden-api` 不是普通 `implementation` 依赖，而是通过 `remapApi(project(":gkd-hidden-api"))` 引入：`gkd-hidden-api` 用 `li.songe.remap` 注解与 processor 描述隐藏 API 的签名与版本，`gkd-app` 在编译期由 remap 插件重写成可跨版本运行的调用代码。
-- `gkd-db` 的 `commonMain` 用 `api(...)` 暴露 Room 与序列化，`gkd-app` 因此可以直接使用 `Db` 暴露的 DAO，而不需要再包一层容器。`Db` 通过 `Db.initialize(this, path)` 在 `App.onCreate` 中初始化。
-- `gkd-selector` 开启 `explicitApi()`，且被 `gkd-app` 以项目依赖方式使用；同一份源码同时产出 npm 包供 Web 侧（快照审查工具）使用。
+- `clean-app` 是唯一的应用模块，**没有其他模块引用 `clean-app`**。因此 `clean-app` 内部禁止使用 `internal`（见 [10-conventions.md](10-conventions.md)）。
+- `clean-hidden-api` 不是普通 `implementation` 依赖，而是通过 `remapApi(project(":clean-hidden-api"))` 引入：`clean-hidden-api` 用 `li.songe.remap` 注解与 processor 描述隐藏 API 的签名与版本，`clean-app` 在编译期由 remap 插件重写成可跨版本运行的调用代码。
+- `clean-db` 的 `commonMain` 用 `api(...)` 暴露 Room 与序列化，`clean-app` 因此可以直接使用 `Db` 暴露的 DAO，而不需要再包一层容器。`Db` 通过 `Db.initialize(this, path)` 在 `App.onCreate` 中初始化。
+- `clean-selector` 开启 `explicitApi()`，且被 `clean-app` 以项目依赖方式使用；同一份源码同时产出 npm 包供 Web 侧（快照审查工具）使用。
 
-## 2. gkd-app 内部分层
+## 2. clean-app 内部分层
 
-`gkd-app` 采用「功能纵向切片 + 明确的数据和平台边界」：
+`clean-app` 采用「功能纵向切片 + 明确的数据和平台边界」：
 
 ```mermaid
 flowchart TD
@@ -130,7 +130,7 @@ flowchart LR
     RT --> ENG["A11yRuleEngine<br/>每服务独立实例"]
     SUB["SubscriptionRepository<br/>解析后的生效规则"] --> ENG
     ST["A11yState<br/>前台信息 + ActivityRule 快照"] --> ENG
-    ENG --> MATCH["Selector 匹配<br/>gkd-selector"]
+    ENG --> MATCH["Selector 匹配<br/>clean-selector"]
     MATCH --> ACT["执行动作"]
     ACT --> LOG["ActionLog / A11yEventLog / ActivityLog"]
     ACT --> NOTIF["NotificationDispatcher"]
@@ -204,12 +204,12 @@ flowchart LR
 
 | 契约 | 位置 | 说明 |
 | --- | --- | --- |
-| `NodeAdapter.getNodeKey` | `gkd-selector` | 相等 key 必须标识同一逻辑节点；匹配器用它做回溯 memoization |
-| 快照一致性 | `gkd-selector` | 一次匹配操作内，adapter 必须对相同参数返回确定的名字/属性/关系/遍历顺序；状态变化只在下一次匹配可见 |
-| `Loadable` | `gkd-app/core/state/Loadable.kt` | `Loading` 表示尚未收到完整首发；`Ready(emptyList())` 表示已加载但结果为空；禁止用空集合伪装初始值 |
+| `NodeAdapter.getNodeKey` | `clean-selector` | 相等 key 必须标识同一逻辑节点；匹配器用它做回溯 memoization |
+| 快照一致性 | `clean-selector` | 一次匹配操作内，adapter 必须对相同参数返回确定的名字/属性/关系/遍历顺序；状态变化只在下一次匹配可见 |
+| `Loadable` | `clean-app/core/state/Loadable.kt` | `Loading` 表示尚未收到完整首发；`Ready(emptyList())` 表示已加载但结果为空；禁止用空集合伪装初始值 |
 | `UiStrings` | `build/generated/source/uiStrings` | 由 `generateUiStrings` 从 `strings.xml` 生成，Compose / 通知 / ViewModel / 纯 Kotlin 规则逻辑共用，无需 Android Context |
-| 数据库 schema | `gkd-db/schemas/li.gkd.db.AppDb/*.json` | 16 个版本的 schema 快照，用于迁移测试与版本校验 |
-| 隐藏 API 签名 | `gkd-hidden-api` + remap | 存根在编译期被 remap 重写为跨版本调用 |
+| 数据库 schema | `clean-db/schemas/li.gkd.db.AppDb/*.json` | 16 个版本的 schema 快照，用于迁移测试与版本校验 |
+| 隐藏 API 签名 | `clean-hidden-api` + remap | 存根在编译期被 remap 重写为跨版本调用 |
 
 ## 8. 构建期架构
 
@@ -231,17 +231,17 @@ flowchart LR
 | `settings.gradle.kts` | 模块清单与仓库配置 |
 | `build.gradle.kts` | `Cfg`（SDK 版本、Java 版本、Kotlin 编译参数）与子项目统一配置 |
 | `gradle/libs.versions.toml` | 全部依赖与插件版本 |
-| `gkd-app/ARCHITECTURE.md` | gkd-app 分层与写入边界基线 |
-| `gkd-app/src/main/kotlin/li/gkd/app/App.kt` | 进程入口、运行时组件初始化、崩溃处理 |
-| `gkd-app/src/main/kotlin/li/gkd/app/MainActivity.kt` | Activity 生命周期、宿主绑定、Compose 挂载 |
-| `gkd-app/src/main/kotlin/li/gkd/app/MainViewModel.kt` | 应用级状态与导航、`requireCurrent()` |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/app/AppRoot.kt` | Compose 根与全局覆盖层 |
-| `gkd-app/src/main/kotlin/li/gkd/app/ui/app/MainNavigation.kt` | Navigation3 导航图 |
-| `gkd-app/src/main/kotlin/li/gkd/app/a11y/A11yRuntime.kt` | 运行时服务选择与统一能力入口 |
-| `gkd-app/src/main/kotlin/li/gkd/app/a11y/A11yRuleEngine.kt` | 规则匹配与动作执行 |
-| `gkd-app/src/main/kotlin/li/gkd/app/a11y/A11yState.kt` | 前台信息与规则快照的并发边界 |
-| `gkd-app/src/main/kotlin/li/gkd/app/domain/rule/RuleSummaryBuilder.kt` | 规则汇总 |
-| `gkd-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionRepository.kt` | 订阅用例编排 |
-| `gkd-db/src/commonMain/kotlin/li/gkd/db/AppDb.kt` | Room 数据库定义与迁移 |
-| `gkd-selector/src/commonMain/kotlin/li/gkd/selector/Selector.kt` | 选择器公开入口 |
+| `clean-app/ARCHITECTURE.md` | clean-app 分层与写入边界基线 |
+| `clean-app/src/main/kotlin/li/gkd/app/App.kt` | 进程入口、运行时组件初始化、崩溃处理 |
+| `clean-app/src/main/kotlin/li/gkd/app/MainActivity.kt` | Activity 生命周期、宿主绑定、Compose 挂载 |
+| `clean-app/src/main/kotlin/li/gkd/app/MainViewModel.kt` | 应用级状态与导航、`requireCurrent()` |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/app/AppRoot.kt` | Compose 根与全局覆盖层 |
+| `clean-app/src/main/kotlin/li/gkd/app/ui/app/MainNavigation.kt` | Navigation3 导航图 |
+| `clean-app/src/main/kotlin/li/gkd/app/a11y/A11yRuntime.kt` | 运行时服务选择与统一能力入口 |
+| `clean-app/src/main/kotlin/li/gkd/app/a11y/A11yRuleEngine.kt` | 规则匹配与动作执行 |
+| `clean-app/src/main/kotlin/li/gkd/app/a11y/A11yState.kt` | 前台信息与规则快照的并发边界 |
+| `clean-app/src/main/kotlin/li/gkd/app/domain/rule/RuleSummaryBuilder.kt` | 规则汇总 |
+| `clean-app/src/main/kotlin/li/gkd/app/data/subscription/SubscriptionRepository.kt` | 订阅用例编排 |
+| `clean-db/src/commonMain/kotlin/li/gkd/db/AppDb.kt` | Room 数据库定义与迁移 |
+| `clean-selector/src/commonMain/kotlin/li/gkd/selector/Selector.kt` | 选择器公开入口 |
 | `buildSrc/src/main/kotlin/li/gkd/gradle/BuildAsset.kt` | 构建产物与 buildKey 生成 |

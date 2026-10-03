@@ -173,7 +173,7 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
-  gkd-selector:
+  clean-selector:
     dependencies:
       regex-wasm:
         specifier: ^0.1.1
