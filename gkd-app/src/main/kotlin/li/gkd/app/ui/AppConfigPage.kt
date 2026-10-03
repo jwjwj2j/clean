@@ -53,6 +53,7 @@ import li.gkd.app.ui.component.GkAppNameText
 import li.gkd.app.ui.component.GkRuleListHeader
 import li.gkd.app.ui.component.GkBatchActionMenuItem
 import li.gkd.app.ui.component.GkEmptyState
+import li.gkd.app.feature.log.ActionLogRoute
 import li.gkd.app.ui.component.GkIconButton
 import li.gkd.app.ui.component.GkFilterIconButton
 import li.gkd.app.ui.component.GkIcons
@@ -260,7 +261,16 @@ fun AppConfigPage(route: AppConfigRoute) {
                                 }
                             }
                         }
-                        // CLEAN：原「查看规则触发记录」图标按钮已随日志页面下线
+                        // CLEAN：恢复「查看规则触发记录」入口。
+                        // 触发记录页已重新上线，这里直接定位到当前应用的记录，
+                        // 用于回答「这个应用的规则到底触发了没有、为什么没触发」。
+                        GkIconButton(
+                            imageVector = GkIcons.History,
+                            onClick = {
+                                mainVm.navigatePage(ActionLogRoute(appId = appId))
+                            },
+                            contentDescription = UiStrings.action_log_title,
+                        )
                     }
                 },
             )

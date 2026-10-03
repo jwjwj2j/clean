@@ -15,6 +15,8 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import li.gkd.app.feature.log.ActionLogPage
+import li.gkd.app.feature.log.ActionLogRoute
 import li.gkd.app.feature.subscription.RuleExcludeEditorPage
 import li.gkd.app.feature.subscription.RuleExcludeEditorRoute
 import li.gkd.app.feature.subscription.SubsAppGroupListPage
@@ -60,6 +62,10 @@ private val mainRouteEntryProvider = entryProvider {
 
     // 应用规则控制面（消费级核心）
     entry<AppConfigRoute> { AppConfigPage(it) }
+    // CLEAN：触发记录页恢复上线。它是「规则为什么没生效」的唯一可见入口，
+    // 数据层（A11yState.addActionLog -> Db.actionLogDao）一直在写，此前只是没有页面读它。
+    // 全局记录：ActionLogRoute()；单应用记录：ActionLogRoute(appId = ...)。
+    entry<ActionLogRoute> { ActionLogPage(it) }
     entry<SubsAppGroupListRoute> { SubsAppGroupListPage(it) }
     entry<SubsCategoryGroupRoute> { SubsCategoryGroupPage(it) }
     entry<SubsGlobalGroupListRoute> { SubsGlobalGroupListPage(it) }

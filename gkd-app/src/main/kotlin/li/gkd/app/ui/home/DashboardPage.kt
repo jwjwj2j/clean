@@ -52,6 +52,7 @@ import li.gkd.app.service.a11yPartDisabledFlow
 import li.gkd.app.service.switchAutomatorService
 import li.gkd.app.service.topAppIdFlow
 import li.gkd.app.store.AppStore.actionCountFlow
+import li.gkd.app.feature.log.ActionLogRoute
 import li.gkd.app.store.AppStore.actualA11yScopeAppList
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.text.UiStrings
@@ -197,14 +198,12 @@ fun useDashboardPage(): ScaffoldExt {
 
             val record = latestRecord
             TriggerRecordCard(
-                // CLEAN：日志页面（触发记录页）已随技术面收口下线，MainNavigation 里没有对应路由；
-                // 整卡点击沿用本页原有的「定位最近一条触发记录」导航，没有记录时整卡不可点。
-                onOpen = if (record == null) {
-                    null
-                } else {
-                    {
-                        mainVm.navigatePage(AppConfigRoute(appId = record.appId, focusLog = record))
-                    }
+                // CLEAN：触发记录页已恢复上线（feature/log/ActionLogPage.kt），
+                // 因此整卡始终可点，不再受「有没有最近一条记录」限制。
+                // 该页会列出每条记录对应的规则状态原因（处于匹配延迟 / 超出匹配时间 /
+                // 达到最大执行次数 …），这正是「规则为什么没生效」的答案所在。
+                onOpen = {
+                    mainVm.navigatePage(ActionLogRoute())
                 },
             )
             Spacer(Modifier.height(cardGap))
