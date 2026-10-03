@@ -30,6 +30,8 @@ class CleanSplashSelectorTest {
         key: String,
         text: String? = null,
         desc: String? = null,
+        id: String? = null,
+        vid: String? = null,
         clickable: Boolean = true,
         visibleToUser: Boolean = true,
         children: List<TestNode> = emptyList(),
@@ -39,6 +41,8 @@ class CleanSplashSelectorTest {
         attributes = buildMap {
             text?.let { put("text", it) }
             desc?.let { put("desc", it) }
+            id?.let { put("id", it) }
+            vid?.let { put("vid", it) }
             put("clickable", clickable)
             put("visibleToUser", visibleToUser)
         },
@@ -162,4 +166,69 @@ class CleanSplashSelectorTest {
             "不可见的 desc 节点不应命中",
         )
     }
+
+    // ---------------------------------------------------------------- id / vid 路径
+    // 上游被禁用的兜底还匹配 id/vid（tt_splash_skip_btn、vid*="skip"、倒计时按钮），
+    // 而 CLEAN 初版只查 text/desc —— 对**无文案的图标型跳过按钮**会漏。这几条补回该覆盖面。
+
+    private val idRule = "[id$=\"tt_splash_skip_btn\"][visibleToUser=true][clickable=true]"
+    private val vidSkipRule = "[(vid*=\"skip\"||vid*=\"Skip\")][visibleToUser=true][clickable=true]"
+    private val vidCountRule =
+        "[vid*=\"count\"][vid*=\"down\"][vid!*=\"download\"][visibleToUser=true][clickable=true]"
+    private val closeAdRule = "[text*=\"关闭广告\"][text.length<8][visibleToUser=true][clickable=true]"
+
+    @Test
+    fun skipButtonByViewIdSuffixMatches() {
+        // id 是完整资源名（包名:id/名字），规则用后缀匹配
+        val full = node("by-id", id = "com.example.app:id/tt_splash_skip_btn")
+        assertSame(full, match(idRule, full), "id 后缀为 tt_splash_skip_btn 必须命中")
+        // 短名形式
+        val short = node("by-id2", id = "tt_splash_skip_btn")
+        assertSame(short, match(idRule, short), "无包名前缀时同样必须命中")
+    }
+
+    @Test
+    fun skipButtonByViewIdNameMatches() {
+        // 注意：node() 每次调用都产生新实例，故先构造再断言同一性
+        val lower = node("v1", vid = "skip_btn")
+        assertSame(lower, match(vidSkipRule, lower))
+        val upper = node("v2", vid = "SkipButton")
+        assertSame(upper, match(vidSkipRule, upper))
+    }
+
+    @Test
+    fun countdownButtonMatchesButDownloadButtonDoesNot() {
+        val countdown = node("cd", vid = "count_down_view")
+        assertNotNull(match(vidCountRule, countdown), "count+down 的倒计时按钮必须命中")
+        // vid!*="download" 的用途：避免把下载按钮误当成倒计时跳过按钮
+        val download = node("dl", vid = "download_count_down")
+        assertNull(match(vidCountRule, download), "含 download 的节点不应命中倒计时规则")
+    }
+
+    @Test
+    fun closeAdRuleMatchesOnlyAdSpecificText() {
+        // 「关闭广告」是广告专属措辞；正常弹窗只会写「关闭」
+        assertNotNull(match(closeAdRule, node("c1", text = "关闭广告")), "「关闭广告」必须命中")
+        assertNull(match(closeAdRule, node("c2", text = "关闭")), "普通「关闭」不得命中")
+        assertNull(match(closeAdRule, node("c3", text = "取消")), "「取消」不得命中")
+    }
+
+    @Test
+    fun idAndVidRulesRejectNonClickableAndInvisibleNodes() {
+        assertNull(
+            match(idRule, node("nc", id = "x:id/tt_splash_skip_btn", clickable = false)),
+            "不可点击不应命中",
+        )
+        assertNull(
+            match(vidSkipRule, node("nv", vid = "skip_btn", visibleToUser = false)),
+            "不可见不应命中",
+        )
+        // 普通关闭按钮不得被 id/vid 规则误命中
+        assertNull(
+            match(idRule, node("other", id = "com.example.app:id/btn_close")),
+            "无关 id 不应命中",
+        )
+        assertNull(match(vidSkipRule, node("other2", vid = "close_btn")), "无关 vid 不应命中")
+    }
+
 }

@@ -1,7 +1,7 @@
 {
   id: -2,
   name: 'CLEAN 补充规则',
-  version: 3,
+  version: 4,
   author: 'CLEAN',
   globalGroups: [
     {
@@ -29,6 +29,24 @@
         {
           key: 3,
           matches: '[childCount=0][visibleToUser=true][clickable=true][(desc.length<8&&(desc*="跳过"||desc*="跳過"||desc*="skip"||desc*="Skip"))]',
+        },
+        {
+          key: 4,
+          quickFind: true,
+          matches: '[id$="tt_splash_skip_btn"][visibleToUser=true][clickable=true]',
+        },
+        {
+          key: 5,
+          matches: '[(vid*="skip"||vid*="Skip")][visibleToUser=true][clickable=true]',
+        },
+        {
+          key: 6,
+          matches: '[vid*="count"][vid*="down"][vid!*="download"][visibleToUser=true][clickable=true]',
+        },
+        {
+          key: 7,
+          quickFind: true,
+          matches: '[text*="关闭广告"][text.length<8][visibleToUser=true][clickable=true]',
         },
       ],
     },
