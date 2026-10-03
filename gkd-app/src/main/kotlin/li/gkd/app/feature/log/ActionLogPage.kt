@@ -1,12 +1,15 @@
 package li.gkd.app.feature.log
 
+import li.gkd.app.ui.style.lineGap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +33,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.serialization.Serializable
 import li.gkd.app.MainViewModel
+import li.gkd.app.a11y.RuleSkipLog
 import li.gkd.app.data.RawSubscription
 import li.gkd.app.data.showActivityId
 import li.gkd.app.domain.rule.RuleSetting
@@ -55,6 +59,8 @@ import li.gkd.app.ui.component.rememberRuleControlEnvironment
 import li.gkd.app.ui.component.useSubs
 import li.gkd.app.ui.share.launchUi
 import li.gkd.app.ui.share.noRippleClickable
+import li.gkd.app.ui.style.cardGap
+import li.gkd.app.ui.style.pagePadding
 import li.gkd.app.ui.style.itemHorizontalPadding
 import li.gkd.app.ui.style.scaffoldPadding
 import li.gkd.app.util.TimeUtils.throttle
@@ -128,14 +134,16 @@ fun ActionLogPage(route: ActionLogRoute) {
                 )
             })
     }, content = { contentPadding ->
-        GkLogTimeline(
-            items = list,
+        Column(modifier = Modifier.scaffoldPadding(contentPadding)) {
+            RuleSkipReasonSection()
+            GkLogTimeline(
+                items = list,
             listState = listState,
             key = { it.actionLog.id },
             appId = { it.actionLog.appId },
             time = { it.actionLog.ctime },
-            modifier = Modifier.scaffoldPadding(contentPadding),
-            showAppHeaders = !appScoped,
+            modifier = Modifier.weight(1f),
+                showAppHeaders = !appScoped,
             contextChanged = { previous, current ->
                 !sameActionLogContext(previous.actionLog, current.actionLog)
             },
@@ -152,6 +160,7 @@ fun ActionLogPage(route: ActionLogRoute) {
                 item = entry,
                 onClick = { vm.showActionLog(entry.actionLog) },
             )
+        }
         }
     })
 
@@ -398,4 +407,58 @@ private fun ItemText(
         text = text,
         color = color,
     )
+}
+
+
+/**
+ * 「最近未触发的规则」显示区（CLEAN）。
+ *
+ * 数据来自 [RuleSkipLog]：引擎在**应用切换时**快照上一个应用中未正常生效的规则状态。
+ * 这个时机正是用户需要的 —— 「在 App B 遇到广告没跳过 -> 切到 CLEAN 查看」。
+ *
+ * 相比触发记录（只记录成功动作），这里回答的是"为什么没触发"。
+ * 注意 AGENTS.md 要求：按条件决定是否输出后续 UI 时不得提前 return，故用条件区块包裹。
+ */
+@Composable
+private fun RuleSkipReasonSection() {
+    val entries by RuleSkipLog.flow.collectAsStateWithLifecycle()
+    if (entries.isNotEmpty()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = pagePadding, vertical = cardGap),
+            shape = MaterialTheme.shapes.medium,
+        ) {
+            Column(Modifier.padding(pagePadding)) {
+                Text(
+                    text = UiStrings.rule_skip_log_title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                entries.take(3).forEach { entry ->
+                    Spacer(Modifier.height(lineGap))
+                    Text(
+                        text = "${entry.appId}  ${entry.groupName}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = entry.statusName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (entries.size > 3) {
+                    Spacer(Modifier.height(lineGap))
+                    Text(
+                        text = UiStrings.rule_skip_log_more(entries.size.toString()),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
 }

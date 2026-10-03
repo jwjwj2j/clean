@@ -176,6 +176,18 @@ object A11yState {
         }
         val oldActivity = activityRuleFlow.value.topActivity
         val oldActivityRule = activityRuleFlow.value
+        // CLEAN：应用切换时快照「上一个应用」中未正常生效的规则状态。
+        // 时机是关键：此刻 activityRuleFlow 仍持有旧应用的规则集，而用户通常正是在
+        // 「在 App B 遇到广告没跳过 -> 切到 CLEAN 查看」这条路径上需要这个答案。
+        // 只在应用真正变化时记录，且开销为一次 O(n) 过滤 + 有界插入（低频）。
+        if (oldActivity.appId.isNotEmpty() && oldActivity.appId != appId) {
+            RuleSkipLog.recordFrom(
+                appId = oldActivity.appId,
+                activityId = oldActivity.activityId,
+                rules = oldActivityRule.currentRules,
+                now = t,
+            )
+        }
         val idChanged = (scene == ActivityScene.ScreenOn || appId != oldActivityRule.topActivity.appId)
         val isSame = scene != ActivityScene.ScreenOn && oldActivity.sameAs(appId, activityId)
         if (scene == ActivityScene.TaskStack) {

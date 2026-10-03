@@ -500,4 +500,7 @@
     <string name="node_inspect_empty">未取到任何节点（无障碍服务可能未运行）</string>
     <string name="node_inspect_unknown_app">未知应用</string>
     <string name="node_inspect_count">共 %1$s 个节点</string>
+    <!-- CLEAN：规则未触发原因（内存记录，见 RuleSkipLog） -->
+    <string name="rule_skip_log_title">最近未触发的规则</string>
+    <string name="rule_skip_log_more">另有 %1$s 条</string>
 </resources>
