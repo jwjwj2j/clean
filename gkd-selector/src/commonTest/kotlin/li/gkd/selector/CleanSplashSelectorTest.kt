@@ -120,4 +120,46 @@ class CleanSplashSelectorTest {
         // 第二条要求 childCount=0，父节点不应命中
         assertNull(match(secondary, parent), "有子节点的「跳过」不应被第二条命中")
     }
+
+    // ---------------------------------------------------------------- desc 路径
+    // 图标型跳过按钮（一个 X 或箭头）没有 text，只有 contentDescription。
+    // 上游被禁用的那条兜底同时查 text 与 desc；CLEAN 初版只查 text，会漏掉这类按钮 —— 故补 desc。
+
+    private val descPrimary = "[desc*=\"跳过\"][desc.length<8][visibleToUser=true][clickable=true]"
+    private val descSecondary =
+        "[childCount=0][visibleToUser=true][clickable=true][(desc.length<8&&(desc*=\"跳过\"||desc*=\"跳過\"||desc*=\"skip\"||desc*=\"Skip\"))]"
+
+    @Test
+    fun iconOnlySkipButtonMatchesByDescription() {
+        val icon = node("icon-skip", desc = "跳过")
+        assertSame(
+            icon,
+            match(descPrimary, icon),
+            "仅有 desc 的图标型跳过按钮必须命中（这正是补 desc 要解决的缺口）",
+        )
+        assertSame(icon, match(descSecondary, icon), "desc 兜底第二条同样必须命中")
+        // 对照：只查 text 的两条规则本就命中不了它 —— 这就是必须补 desc 的理由
+        assertNull(match(primary, icon), "只查 text 的规则不应命中纯 desc 节点")
+        assertNull(match(secondary, icon), "只查 text 的规则不应命中纯 desc 节点（第二条）")
+    }
+
+    @Test
+    fun descMisfireCasesAreRejected() {
+        assertNull(
+            match(descPrimary, node("d-close", desc = "关闭")),
+            "desc=「关闭」不应命中（否则会误关正常弹窗）",
+        )
+        assertNull(
+            match(descPrimary, node("d-long", desc = "跳过广告即可继续观看视频")),
+            "长 desc 不应命中",
+        )
+        assertNull(
+            match(descPrimary, node("d-noclick", desc = "跳过", clickable = false)),
+            "不可点击的 desc 节点不应命中",
+        )
+        assertNull(
+            match(descPrimary, node("d-invisible", desc = "跳过", visibleToUser = false)),
+            "不可见的 desc 节点不应命中",
+        )
+    }
 }

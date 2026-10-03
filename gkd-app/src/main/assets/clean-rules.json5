@@ -1,7 +1,7 @@
 {
   id: -2,
   name: 'CLEAN 补充规则',
-  version: 2,
+  version: 3,
   author: 'CLEAN',
   globalGroups: [
     {
@@ -20,6 +20,15 @@
         {
           key: 1,
           matches: '[childCount=0][visibleToUser=true][clickable=true][(text.length<8&&(text*="跳过"||text*="跳過"||text*="skip"||text*="Skip"))]',
+        },
+        {
+          key: 2,
+          quickFind: true,
+          matches: '[desc*="跳过"][desc.length<8][visibleToUser=true][clickable=true]',
+        },
+        {
+          key: 3,
+          matches: '[childCount=0][visibleToUser=true][clickable=true][(desc.length<8&&(desc*="跳过"||desc*="跳過"||desc*="skip"||desc*="Skip"))]',
         },
       ],
     },
