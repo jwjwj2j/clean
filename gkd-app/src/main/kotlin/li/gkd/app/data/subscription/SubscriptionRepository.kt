@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import li.gkd.app.app
 import li.gkd.app.text.UiStrings
 import li.gkd.app.core.state.Loadable
 import li.gkd.app.data.RawSubscription
@@ -26,6 +27,40 @@ import li.gkd.db.Db
 import li.gkd.db.LOCAL_SUBS_ID
 import li.gkd.db.SubsItem
 import li.songe.json5.decodeFromJson5String
+
+/**
+ * CLEAN 随包兜底的订阅规则资源（assets/[BUNDLED_RULES_ASSET]）。
+ *
+ * **为什么需要它**：内置订阅源是上游的 `@gkd-kit/subscription`，该订阅自称
+ * 「默认订阅-已停止维护」，且规则**只能联网下载**——APK 里原本没有任何规则。
+ * 后果有两个，都很严重：
+ * 1. 全新安装且当时无网络 → 零条规则，什么都拦不住，用户会认为 App 是坏的；
+ * 2. 上游 CDN 一旦失效 → 所有用户同时失效，且无法自愈。
+ *
+ * **因此把某个版本的规则随包打进去作为兜底**，规则如下：
+ * - 联网正常时**仍以网络为准**（网络版本可能比随包新），不改变既有更新链路；
+ * - 三个地址全部失败且本地无订阅时，用随包规则安装，保证首次离线也能拦；
+ * - 随包版本**高于**已安装版本时用随包规则升级，使 App 更新即可带来规则更新；
+ * - 随包版本低于已安装版本时**不回退**，避免用旧规则覆盖用户已经拿到的新规则。
+ *
+ * 更新方法：用 `tools/update_bundled_rules.py` 重新抓取覆盖该资源即可。
+ * 资源缺失或解析失败一律静默降级为「没有兜底」，绝不阻断启动。
+ */
+private const val BUNDLED_RULES_ASSET = "gkd-fallback.json5"
+
+/** 读取随包兜底规则正文；资源缺失或读取失败返回 null（不抛异常）。 */
+private fun readBundledRulesText(): String? = runCatching {
+    app.assets.open(BUNDLED_RULES_ASSET).use { it.readBytes().decodeToString() }
+}.onFailure {
+    LogUtils.d("随包兜底规则读取失败", it.message)
+}.getOrNull()
+
+/** 解析随包兜底规则；任何失败都返回 null。 */
+private fun parseBundledRules(): RawSubscription? = runCatching {
+    readBundledRulesText()?.let { RawSubscription.parse(it) }
+}.onFailure {
+    LogUtils.d("随包兜底规则解析失败", it.message)
+}.getOrNull()
 
 object SubscriptionRepository {
     private val updateMutex = MutexState()
@@ -95,6 +130,25 @@ object SubscriptionRepository {
                     Db.subsItemDao.updateEnable(existing.id, true)
                 }
                 purgeForeignSources(keepId = existing.id)
+                // CLEAN：随包规则比已安装的更新时，用随包规则升级。
+                // 这样发新版本 App 就能顺带更新规则，不必等网络同步。
+                // 只在「严格更新」时替换，随包更旧则保持不动。
+                val installedVersion =
+                    snapshotFlow.value.value?.subscriptions?.get(existing.id)?.version
+                val bundled = parseBundledRules()
+                if (
+                    bundled != null && installedVersion != null &&
+                    bundled.id == existing.id && bundled.version > installedVersion
+                ) {
+                    LogUtils.d(
+                        "随包规则更新",
+                        "已安装 version=$installedVersion, 随包 version=${bundled.version}",
+                    )
+                    saveLocked(
+                        subscription = bundled,
+                        insertItem = false,
+                    )
+                }
                 refreshRawSubscriptions(
                     items = Db.subsItemDao.queryAll(),
                     previous = SubscriptionSnapshot(),
@@ -115,6 +169,12 @@ object SubscriptionRepository {
                     lastError = e
                     LogUtils.d("内置订阅源下载失败", url, e.message)
                 }
+            }
+            // CLEAN：三个地址全部失败时回退到随包兜底规则。
+            // 这是「全新安装 + 无网络」以及「上游 CDN 失效」两条路径的唯一保障。
+            if (text == null) {
+                LogUtils.d("内置订阅源全部下载失败，改用随包兜底规则", lastError?.message)
+                text = readBundledRulesText()
             }
             if (text == null) {
                 result = SubscriptionResult.Failure(
