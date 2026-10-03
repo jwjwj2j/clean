@@ -4,6 +4,16 @@
 
 装上、授权、激活，然后用你的手机就行 —— **不需要配置任何规则**。
 
+## 截图
+
+| 首页 | 应用列表 |
+| --- | --- |
+| ![首页](docs/screenshots/home.jpg) | ![应用列表](docs/screenshots/app-list.jpg) |
+
+| 设置 | 应用规则 |
+| --- | --- |
+| ![设置](docs/screenshots/settings.jpg) | ![应用规则](docs/screenshots/app-rules.jpg) |
+
 ## 功能
 
 - **自动跳过开屏广告**：App 启动时自动点掉「跳过」
