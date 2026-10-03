@@ -1,10 +1,28 @@
 {
   id: -2,
   name: 'CLEAN 补充规则',
-  version: 1,
+  version: 2,
   author: 'CLEAN',
-  supportUri: '',
-  updateUrl: '',
-  globalGroups: [],
+  globalGroups: [
+    {
+      key: 100,
+      name: '开屏广告（CLEAN 兜底）',
+      order: 100,
+      actionMaximum: 1,
+      matchTime: 8000,
+      resetMatch: 'app',
+      rules: [
+        {
+          key: 0,
+          quickFind: true,
+          matches: '[text*="跳过"][text.length<8][visibleToUser=true][clickable=true]',
+        },
+        {
+          key: 1,
+          matches: '[childCount=0][visibleToUser=true][clickable=true][(text.length<8&&(text*="跳过"||text*="跳過"||text*="skip"||text*="Skip"))]',
+        },
+      ],
+    },
+  ],
   apps: [],
 }
