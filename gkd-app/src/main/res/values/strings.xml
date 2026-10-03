@@ -492,4 +492,12 @@
     <string name="rule_view">查看规则</string>
     <string name="page_exclusion_add_current">排除此页面</string>
     <string name="page_exclusion_remove">移除页面排除</string>
+    <!-- CLEAN：节点树审查页文案（第②段恢复的能力） -->
+    <string name="node_inspect_title">节点审查</string>
+    <string name="node_inspect_refresh">重新抓取</string>
+    <string name="node_inspect_loading">正在读取当前屏幕…</string>
+    <string name="node_inspect_hint">点右上角刷新以读取当前屏幕</string>
+    <string name="node_inspect_empty">未取到任何节点（无障碍服务可能未运行）</string>
+    <string name="node_inspect_unknown_app">未知应用</string>
+    <string name="node_inspect_count">共 %1$s 个节点</string>
 </resources>

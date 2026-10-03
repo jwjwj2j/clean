@@ -15,6 +15,8 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import li.gkd.app.feature.inspect.NodeInspectPage
+import li.gkd.app.feature.inspect.NodeInspectRoute
 import li.gkd.app.feature.log.ActionLogPage
 import li.gkd.app.feature.log.ActionLogRoute
 import li.gkd.app.feature.subscription.RuleExcludeEditorPage
@@ -66,6 +68,8 @@ private val mainRouteEntryProvider = entryProvider {
     // 数据层（A11yState.addActionLog -> Db.actionLogDao）一直在写，此前只是没有页面读它。
     // 全局记录：ActionLogRoute()；单应用记录：ActionLogRoute(appId = ...)。
     entry<ActionLogRoute> { ActionLogPage(it) }
+    // CLEAN：节点树审查页（第②段恢复）。只读当前屏幕节点树，不截图/不落盘/不上传。
+    entry<NodeInspectRoute> { NodeInspectPage() }
     entry<SubsAppGroupListRoute> { SubsAppGroupListPage(it) }
     entry<SubsCategoryGroupRoute> { SubsCategoryGroupPage(it) }
     entry<SubsGlobalGroupListRoute> { SubsGlobalGroupListPage(it) }

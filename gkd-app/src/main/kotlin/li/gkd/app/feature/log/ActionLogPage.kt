@@ -42,6 +42,7 @@ import li.gkd.app.ui.component.GkLogTimeText
 import li.gkd.app.ui.component.gkLogTimelineRail
 import li.gkd.app.ui.component.GkGroupNameText
 import li.gkd.app.ui.component.GkIcon
+import li.gkd.app.feature.inspect.NodeInspectRoute
 import li.gkd.app.ui.component.GkIconButton
 import li.gkd.app.ui.component.GkIcons
 import li.gkd.app.ui.component.GkRuleSettingsContent
@@ -116,6 +117,15 @@ fun ActionLogPage(route: ActionLogRoute) {
                         modifier = titleModifier,
                     )
                 }
+            },
+            actions = {
+                // CLEAN：从触发记录页进入节点树审查（诊断入口归诊断页）。
+                // 审查只读当前屏幕节点树，不截图、不落盘、不上传。
+                GkIconButton(
+                    imageVector = GkIcons.CenterFocusWeak,
+                    onClick = { mainVm.navigatePage(NodeInspectRoute) },
+                    contentDescription = UiStrings.node_inspect_title,
+                )
             })
     }, content = { contentPadding ->
         GkLogTimeline(
