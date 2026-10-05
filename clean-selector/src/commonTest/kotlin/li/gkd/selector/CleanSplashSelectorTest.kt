@@ -175,7 +175,6 @@ class CleanSplashSelectorTest {
     private val vidSkipRule = "[(vid*=\"skip\"||vid*=\"Skip\")][visibleToUser=true][clickable=true]"
     private val vidCountRule =
         "[vid*=\"count\"][vid*=\"down\"][vid!*=\"download\"][visibleToUser=true][clickable=true]"
-    private val closeAdRule = "[text*=\"关闭广告\"][text.length<8][visibleToUser=true][clickable=true]"
 
     @Test
     fun skipButtonByViewIdSuffixMatches() {
@@ -204,15 +203,6 @@ class CleanSplashSelectorTest {
         val download = node("dl", vid = "download_count_down")
         assertNull(match(vidCountRule, download), "含 download 的节点不应命中倒计时规则")
     }
-
-    @Test
-    fun closeAdRuleMatchesOnlyAdSpecificText() {
-        // 「关闭广告」是广告专属措辞；正常弹窗只会写「关闭」
-        assertNotNull(match(closeAdRule, node("c1", text = "关闭广告")), "「关闭广告」必须命中")
-        assertNull(match(closeAdRule, node("c2", text = "关闭")), "普通「关闭」不得命中")
-        assertNull(match(closeAdRule, node("c3", text = "取消")), "「取消」不得命中")
-    }
-
     @Test
     fun idAndVidRulesRejectNonClickableAndInvisibleNodes() {
         assertNull(

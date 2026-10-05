@@ -1,7 +1,7 @@
 {
   id: -2,
   name: 'CLEAN 补充规则',
-  version: 5,
+  version: 6,
   author: 'CLEAN',
   globalGroups: [
     {
@@ -48,11 +48,6 @@
         {
           key: 6,
           matches: '[vid*="count"][vid*="down"][vid!*="download"][visibleToUser=true][clickable=true]',
-        },
-        {
-          key: 7,
-          quickFind: true,
-          matches: '[text*="关闭广告"][text.length<8][visibleToUser=true][clickable=true]',
         },
       ],
       apps: [
