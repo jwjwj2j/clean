@@ -24,6 +24,17 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
+        // CLEAN：无激活码版本。
+        //   默认构建（不加参数）-> ACTIVATION_REQUIRED = true，行为与原来完全一致；
+        //   加 -PCLEAN_FREE=true 构建 -> 门禁关闭，装完即可用，无需激活码。
+        // 用构建期常量而不是改源码，是为了两种包都能从同一份代码出，且不会有人
+        // 误把「已放行」的代码提交进去。
+        buildConfigField(
+            "boolean",
+            "ACTIVATION_REQUIRED",
+            ((findProperty("CLEAN_FREE") as? String)?.toBoolean() != true).toString(),
+        )
+
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -48,6 +59,8 @@ android {
         compose = true
         aidl = true
         resValues = true
+        // 无激活码版本需要构建期常量来决定是否启用激活门禁
+        buildConfig = true
     }
 
 

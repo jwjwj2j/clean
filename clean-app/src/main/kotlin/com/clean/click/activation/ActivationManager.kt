@@ -1,5 +1,6 @@
 package com.clean.click.activation
 
+import li.gkd.app.BuildConfig
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,9 +49,25 @@ object ActivationManager {
         data class InvalidInput(val message: String) : Outcome()
     }
 
-    val snapshotFlow: StateFlow<Snapshot> field = MutableStateFlow(Snapshot())
+    /**
+     * 无激活码版本（-PCLEAN_FREE=true）直接以「已永久激活、最高档」起步，
+     * 这样在 initialize() 执行之前界面就已经放行，不会闪一下激活页。
+     */
+    /** 无激活码版本使用的档位（tier 为 4 位，15 即解锁全部功能）。 */
+    private const val FREE_BUILD_TIER = 15
 
-    val isActivatedFlow: StateFlow<Boolean> field = MutableStateFlow(false)
+    private val freeBuild: Boolean get() = !BuildConfig.ACTIVATION_REQUIRED
+
+    private fun freeSnapshot() = Snapshot(
+        activated = true,
+        permanent = true,
+        tier = FREE_BUILD_TIER,
+    )
+
+    val snapshotFlow: StateFlow<Snapshot> field =
+        MutableStateFlow(if (freeBuild) freeSnapshot() else Snapshot())
+
+    val isActivatedFlow: StateFlow<Boolean> field = MutableStateFlow(freeBuild)
 
     private lateinit var appContext: Context
     private val secret: ByteArray by lazy { ActivationSecret.key() }
@@ -180,7 +197,11 @@ object ActivationManager {
                 clockAnomaly = clockAnomaly,
             )
         }
-        snapshotFlow.value = snapshot
-        isActivatedFlow.value = snapshot.activated
+        // 无激活码版本：无论激活记录校验结果如何，一律放行且永久有效。
+        // 只在这一处兜底即可 —— isActivatedFlow 是全部门禁的唯一事实源
+        // （A11yRuleEngine 的执行判断与界面的激活页判断都读它）。
+        val effective = if (freeBuild) freeSnapshot() else snapshot
+        snapshotFlow.value = effective
+        isActivatedFlow.value = effective.activated
     }
 }
