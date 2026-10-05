@@ -79,29 +79,6 @@ class CleanSupplementaryRuleTest {
     }
 
     /**
-     * 「现在覆盖到了」的证据：CLEAN 补充规则没有 disable 列表，
-     * 且 `globalDefault` 对普通应用返回 true —— 规则会参与匹配。
-     */
-    @Test
-    fun cleanSplashFallbackAppliesToSameApp() {
-        val group = cleanSplashGroup()
-        assertNull(
-            "CLEAN 补充规则不应把该应用排除在外",
-            RuleScopePolicy.globalApp(group, null, TARGET_APP),
-        )
-        assertTrue(
-            "CLEAN 补充规则应对 $TARGET_APP 生效",
-            RuleScopePolicy.globalDefault(
-                group = group,
-                rule = null,
-                appId = TARGET_APP,
-                launcherAppId = "com.example.launcher",
-                systemAppIds = setOf("android"),
-            ),
-        )
-    }
-
-    /**
      * 「规则真的会被装载」的证据：`buildUsedSubsEntries` 是规则解析的入口，
      * 它要求 `item.enable && subscription.hasRule`。本地订阅只有同时满足这两条
      * 才会进入后续的规则构建 —— 任一条不满足，规则写了也等于没写，且没有任何报错。
@@ -155,4 +132,64 @@ class CleanSupplementaryRuleTest {
             )
         }
     }
+
+    /**
+     * 回归测试：补充规则**不得**作用于「上游通用兜底仍启用」的应用。
+     *
+     * ## 事故经过
+     * 初版补充规则没有应用限定（`matchAnyApp` 默认 true），于是它作用在所有应用上。
+     * 而上游的通用开屏规则（`actionMaximum: 2`）在大多数应用上是启用的 ——
+     * 两套规则在同一个「跳过」按钮上**叠加**，最多点 2~3 次。
+     * 开屏关闭后界面已经变了，第二次点击落到了别处：
+     * **实测把「中国移动」的关怀模式关掉了。**
+     *
+     * ## 修法
+     * 上游主动为 107 个应用写了 `apps:[{id,enable:false}]`（关闭通用兜底），
+     * 补充规则的本意正是补这个缺口。因此加 `matchAnyApp: false` + 显式白名单，
+     * 让两套规则的作用域**互不重叠**。
+     */
+    @Test
+    fun supplementaryRuleDoesNotApplyToAppsWithUpstreamFallbackEnabled() {
+        val group = cleanSplashGroup()
+        val chinaMobile = "com.greenpoint.android.mc10086.activity"
+
+        assertNull(
+            "中国移动不在白名单里，不应被补充规则覆盖",
+            RuleScopePolicy.globalApp(group, null, chinaMobile),
+        )
+        assertFalse(
+            "补充规则不得对中国移动生效（否则会与上游规则叠加、连点两次）",
+            RuleScopePolicy.globalDefault(
+                group = group,
+                rule = null,
+                appId = chinaMobile,
+                launcherAppId = "com.example.launcher",
+                systemAppIds = setOf("android"),
+            ),
+        )
+    }
+
+    /**
+     * 另一方面：上游**关闭了**兜底的应用必须仍在白名单内，否则补充规则就失去意义。
+     */
+    @Test
+    fun supplementaryRuleStillAppliesToAppsWhereUpstreamFallbackIsDisabled() {
+        val group = cleanSplashGroup()
+        val bili = "tv.danmaku.bili"
+        assertNotNull(
+            "哔哩哔哩是上游关闭兜底的应用之一，必须在白名单内",
+            RuleScopePolicy.globalApp(group, null, bili),
+        )
+        assertTrue(
+            "补充规则必须对哔哩哔哩生效",
+            RuleScopePolicy.globalDefault(
+                group = group,
+                rule = null,
+                appId = bili,
+                launcherAppId = "com.example.launcher",
+                systemAppIds = setOf("android"),
+            ),
+        )
+    }
+
 }
