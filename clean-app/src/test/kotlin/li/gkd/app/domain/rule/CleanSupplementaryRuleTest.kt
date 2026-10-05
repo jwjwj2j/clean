@@ -192,4 +192,26 @@ class CleanSupplementaryRuleTest {
         )
     }
 
+
+    /**
+     * 锁定**默认关闭**这个决定。
+     *
+     * 补充规则的收益从未获得真机验证，而它已造成两次误触：
+     * 连点两次误关「中国移动」关怀模式、酷安卡片广告跳过不准。
+     * 上游又是**故意**为这 107 个应用关闭通用兜底的（它们各有专属规则），
+     * 本组重新启用同类"钝"规则，仍有与专属规则叠加的风险。
+     *
+     * 因此本组以 `enable: false` 出厂：能力保留、默认不生效。
+     * 若将来默认打开，必须先有真机验证证据，并同步修改本测试。
+     */
+    @Test
+    fun groupShipsDisabledByDefault() {
+        val group = cleanSplashGroup()
+        assertEquals(
+            "CLEAN 补充规则必须出厂即关闭（收益未验证、风险已发生）",
+            false,
+            group.enable,
+        )
+    }
+
 }
