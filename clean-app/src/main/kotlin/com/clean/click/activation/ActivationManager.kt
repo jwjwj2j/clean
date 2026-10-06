@@ -246,8 +246,12 @@ object ActivationManager {
                     daysRemaining = remaining,
                     clockAnomaly = clockAnomaly,
                     tier = result.tier,
-                    trialActive = trial.active,
-                    trialRemainingSeconds = trial.remainingSeconds,
+                    // 有有效激活码时，授权来源是激活码本身，不再是试用 ——
+                    // trial.active 只表示「6 小时窗口还没过」，与是否已输入激活码无关。
+                    // 若这里跟着 trial.active 走，用户激活成功后首页仍会显示
+                    // 「免费试用中」，看起来像「输入激活码毫无反应」。
+                    trialActive = false,
+                    trialRemainingSeconds = 0L,
                 )
             }
 
