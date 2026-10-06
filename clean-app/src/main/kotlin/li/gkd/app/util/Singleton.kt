@@ -50,7 +50,7 @@ val client by lazy {
             requestTimeoutMillis = 120_000
         }
         defaultRequest {
-            headers.append(HttpHeaders.UserAgent, USER_AGENT)
+            headers[HttpHeaders.UserAgent] = USER_AGENT
         }
         engine {
             clientCacheSize = 0

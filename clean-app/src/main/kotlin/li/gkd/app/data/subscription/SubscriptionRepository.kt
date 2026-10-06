@@ -275,6 +275,22 @@ object SubscriptionRepository {
                 return@tryWithStateLock
             }
 
+            // 下载/解包可能成功但正文无效（例如 npm 包里 15 字节的版本元数据）。
+            // 若把这种内容当订阅装进去，原有好规则已被 purge，用户就会看到
+            // 「规则几乎为 0」。所以先体检，不合格就退回随包兜底。
+            if (!looksLikeSubscription(text)) {
+                LogUtils.d("下载内容不像订阅正文，改用随包兜底规则", "长度=${text.length}")
+                text = readBundledRulesText()
+            }
+            if (text == null) {
+                result = SubscriptionResult.Failure(
+                    reason = SubscriptionResult.FailureReason.Download,
+                    detail = lastError?.message,
+                    cause = lastError,
+                )
+                return@tryWithStateLock
+            }
+
             val subscription = try {
                 RawSubscription.parse(text)
             } catch (e: Exception) {
@@ -339,6 +355,7 @@ object SubscriptionRepository {
         if (bytes.size < 2 || bytes[0] != 0x1F.toByte() || bytes[1] != 0x8B.toByte()) {
             return bytes.decodeToString()
         }
+        var best: ByteArray? = null
         java.util.zip.GZIPInputStream(java.io.ByteArrayInputStream(bytes)).use { gz ->
             val header = ByteArray(TAR_BLOCK)
             while (true) {
@@ -349,19 +366,50 @@ object SubscriptionRepository {
                 val name = String(header, 0, 100, Charsets.UTF_8).trimEnd { it.code == 0 || it.code == 32 }
                 val sizeText = String(header, 124, 12, Charsets.US_ASCII).trim().trimEnd { it.code == 0 }
                 val size = sizeText.toLongOrNull(8) ?: 0L
-                val isRules = name.endsWith(".json5") && !name.endsWith(".version.json5")
-                if (isRules) {
-                    val data = ByteArray(size.toInt())
-                    if (!gz.readFully(data)) break
-                    return data.decodeToString()
+                // tar 每个成员的数据区都要补齐到 512 的倍数。
+                // 读/跳过数据后**必须**把填充也跳掉，否则后续块全部错位，
+                // size 字段会读成垃圾值（可能巨大 -> 分配数组直接抛异常），
+                // 结果是所有 URL 都失败、静默退回随包停更规则。
+                val padded = (size + TAR_BLOCK - 1) / TAR_BLOCK * TAR_BLOCK
+                // 防御：成员大小异常时不再读入内存（避免垃圾值导致超大分配）
+                if (size > 0 && size <= MAX_TAR_MEMBER_SIZE) {
+                    val isRules =
+                        name.endsWith(".json5") && !name.endsWith(".version.json5")
+                    if (isRules) {
+                        val data = ByteArray(size.toInt())
+                        if (!gz.readFully(data)) break
+                        // 取「最大的」而不是「第一个」：包内可能同时有规则正文与
+                        // 版本元数据文件，按大小选对成员顺序与命名都不敏感。
+                        val current = best
+                        if (current == null || data.size > current.size) best = data
+                    }
                 }
-                if (!gz.skipFully(size)) break
+                // 无论是否命中，都要越过整个数据区（含填充）
+                if (!gz.skipExact(padded)) break
             }
         }
-        error("tarball 内未找到规则文件")
+        return best?.decodeToString() ?: error("tarball 内未找到规则文件")
     }
 
     /** tar 每块 512 字节。 */
+    /** 单个成员大小上限，防御 tar 头被误读成垃圾值时产生超大数组分配。 */
+    private const val MAX_TAR_MEMBER_SIZE = 16L * 1024 * 1024
+
+    /** 精确跳过 n 字节（不补齐）。 */
+    private fun java.io.InputStream.skipExact(n: Long): Boolean {
+        var remaining = n
+        while (remaining > 0) {
+            val skipped = skip(remaining)
+            if (skipped > 0) {
+                remaining -= skipped
+                continue
+            }
+            if (read() < 0) return false
+            remaining -= 1
+        }
+        return true
+    }
+
     private const val TAR_BLOCK = 512
 
     /** 读满 target，EOF 返回 false。 */
@@ -389,6 +437,24 @@ object SubscriptionRepository {
         }
         return true
     }
+
+    /**
+     * 轻量体检：下载到的正文是否**像**一份订阅规则。
+     *
+     * 拦住「解析能通过、但几乎没有规则」的情况。一旦这类内容被当成订阅装进去，
+     * 原有的好规则又已被 purge，用户看到的就是「规则几乎为 0」。
+     * 宁可退回随包兜底，也不要装一份空规则。
+     */
+    private fun looksLikeSubscription(text: String): Boolean {
+        if (text.length < MIN_SUBSCRIPTION_LENGTH) return false
+        return text.contains("globalGroups") || text.contains("apps")
+    }
+
+    /** 规则正文长度下限。
+     *
+     * 真实订阅都是数百 KB；15 字节的版本元数据这类内容会被直接排除。
+     */
+    private const val MIN_SUBSCRIPTION_LENGTH = 10_000
 
     private suspend fun purgeForeignSources(keepId: Long?) {
         val stale = Db.subsItemDao.queryAll()
