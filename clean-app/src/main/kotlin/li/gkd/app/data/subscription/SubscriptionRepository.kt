@@ -138,6 +138,24 @@ object SubscriptionRepository {
      * 因此可以原样交给 [RawSubscription.parse]。
      */
     val builtinUrls = listOf(
+        "https://fastly.jsdelivr.net/npm/@fkybnjd/gkd-subscription-cn/dist/AIsouler_gkd_cn.json5",
+        "https://cdn.jsdelivr.net/npm/@fkybnjd/gkd-subscription-cn/dist/AIsouler_gkd_cn.json5",
+        "https://fastly.jsdelivr.net/npm/@fkybnjd/gkd-subscription-cn@latest/dist/AIsouler_gkd_cn.json5",
+    )
+
+    /**
+     * 旧内置源（官方 @gkd-kit/subscription）。
+     *
+     * 该订阅自 2024-02-03 起停更，冻结在 version 186（来源：npmmirror registry
+     * 的发布记录），因此已换成上面覆盖更广、仍在维护的第三方源。
+     *
+     * **这几个 URL 只在迁移时使用：** [ensureBuiltin] 判断"内置槽位"的依据是
+     * `updateUrl in builtinUrls`。老用户库里存的是旧 URL，若不显式识别并删除，
+     * 该判断会落空 → 走"全新安装"分支 → **新旧两份订阅并存** →
+     * 同一个按钮上两套规则叠加、连点两次 → 界面已变时第二下点到别处。
+     * 这正是「中国移动关怀模式被误关」事故的成因，不能重演。
+     */
+    val legacyBuiltinUrls = listOf(
         "https://registry.npmmirror.com/@gkd-kit/subscription/latest/files",
         "https://registry.npmmirror.com/@gkd-kit/subscription/latest/files/dist/gkd.json5",
         "https://fastly.jsdelivr.net/npm/@gkd-kit/subscription",
@@ -157,7 +175,21 @@ object SubscriptionRepository {
         var result: SubscriptionResult = SubscriptionResult.Busy
         val acquired = updateMutex.tryWithStateLock {
             val items = Db.subsItemDao.queryAll()
-            val existing = items.firstOrNull { it.updateUrl != null && it.updateUrl in builtinUrls }
+
+            // 迁移：清掉旧内置源，避免它与新源并存。
+            // 必须在查询 existing **之前**执行，否则下面会以为"还没有内置源"。
+            val legacyIds = items
+                .filter { it.updateUrl != null && it.updateUrl in legacyBuiltinUrls }
+                .map { it.id }
+                .toLongArray()
+            if (legacyIds.isNotEmpty()) {
+                runCatching { SubscriptionPersistence.delete(legacyIds) }
+                    .onSuccess { LogUtils.d("已移除旧内置订阅源（迁移到新源）", it.ids) }
+                    .onFailure { LogUtils.d("移除旧内置订阅源失败", it.message) }
+            }
+            val liveItems = Db.subsItemDao.queryAll()
+            val existing =
+                liveItems.firstOrNull { it.updateUrl != null && it.updateUrl in builtinUrls }
 
             if (existing != null) {
                 if (!existing.enable) {
