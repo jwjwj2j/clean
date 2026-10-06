@@ -155,6 +155,20 @@ object SubscriptionRepository {
      * 同一个按钮上两套规则叠加、连点两次 → 界面已变时第二下点到别处。
      * 这正是「中国移动关怀模式被误关」事故的成因，不能重演。
      */
+    /**
+     * 用随包规则兜底安装时，写入 [SubsItem.updateUrl] 的占位值。
+     *
+     * **为什么不能写成 [builtinUrls] 里的地址：** [ensureBuiltin] 判断
+     * 「内置槽位已存在」的依据是 `updateUrl in builtinUrls`。如果兜底安装也记成
+     * 真实 URL，那么只要**一次**网络失败（限流、超时、断网），下次启动就会命中
+     * 「已存在」分支并 `return` —— **再也不会重试下载**，用户被永久钉在随包的
+     * 停更规则上，即使网络恢复也没救。
+     *
+     * 用占位值让 `in builtinUrls` 恒为 false，从而**每次启动都重试**，
+     * 直到真正下载成功、写入真实 URL 为止。
+     */
+    const val BUNDLED_PLACEHOLDER_URL = "bundled://gkd-fallback.json5"
+
     val legacyBuiltinUrls = listOf(
         "https://registry.npmmirror.com/@gkd-kit/subscription/latest/files",
         "https://registry.npmmirror.com/@gkd-kit/subscription/latest/files/dist/gkd.json5",
@@ -225,9 +239,13 @@ object SubscriptionRepository {
 
             var text: String? = null
             var lastError: Exception? = null
+            // 记录内容究竟来自网络还是随包兜底 —— 决定写入哪个 updateUrl，
+            // 进而决定下次启动是否重试（见 BUNDLED_PLACEHOLDER_URL 的说明）。
+            var fromNetwork = false
             for (url in builtinUrls) {
                 try {
                     text = client.get(url).bodyAsText()
+                    fromNetwork = true
                     break
                 } catch (e: CancellationException) {
                     throw e
@@ -275,7 +293,10 @@ object SubscriptionRepository {
                     subscription = subscription,
                     newItem = SubsItem(
                         id = subscription.id,
-                        updateUrl = builtinUrls.first(),
+                        // 网络下载成功才记真实 URL；兜底则记占位值，
+                        // 保证下次启动仍会重试下载。
+                        updateUrl = if (fromNetwork) builtinUrls.first()
+                        else BUNDLED_PLACEHOLDER_URL,
                         order = 0,
                         enable = true,
                     ),
