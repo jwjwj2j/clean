@@ -194,7 +194,7 @@ fun ActivationRenewNotice(onDismiss: () -> Unit) {
     }
 }
 
-private fun activationErrorText(outcome: ActivationManager.Outcome.Rejected): String =
+fun activationErrorText(outcome: ActivationManager.Outcome.Rejected): String =
     when (outcome.error) {
         // 对伪造类失败一律给同一句话，避免成为算法探测器（spec.md §8.1）
         ActivationError.Malformed,

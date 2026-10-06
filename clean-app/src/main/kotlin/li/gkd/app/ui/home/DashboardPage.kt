@@ -53,6 +53,7 @@ import li.gkd.app.service.switchAutomatorService
 import li.gkd.app.service.topAppIdFlow
 import li.gkd.app.store.AppStore.actionCountFlow
 import li.gkd.app.feature.log.ActionLogRoute
+import com.clean.click.activation.ActivationManager
 import li.gkd.app.store.AppStore.actualA11yScopeAppList
 import li.gkd.app.store.AppStore.storeFlow
 import li.gkd.app.text.UiStrings
@@ -197,6 +198,13 @@ fun useDashboardPage(): ScaffoldExt {
             DashboardStatRow(ruleSummary = ruleSummary)
             // 设计稿 §1.2：副数据区卡片下方留 16dp 间距（令牌 cardGap 12dp + lineGap 4dp）。
             Spacer(Modifier.height(cardGap + lineGap))
+
+            // CLEAN：试用期内显示剩余时间，避免到期后「突然不能用」造成客诉。
+            val activation by ActivationManager.snapshotFlow.collectAsStateWithLifecycle()
+            if (activation.trialActive) {
+                TrialNoticeCard(remainingSeconds = activation.trialRemainingSeconds)
+                Spacer(Modifier.height(cardGap))
+            }
 
             val record = latestRecord
             TriggerRecordCard(
@@ -543,5 +551,63 @@ private fun Modifier.pressScaleEffect(interactionSource: MutableInteractionSourc
     return this.graphicsLayer {
         scaleX = scale
         scaleY = scale
+    }
+}
+
+/**
+ * 免费试用剩余时间提示卡。
+ *
+ * 为什么必须有：试用到期会**静默**关闭门禁（引擎停止、界面被拦）。若不给任何提示，
+ * 用户会在毫无预兆的情况下发现「软件突然不能用了」——这是最典型的客诉来源。
+ * 到期后本卡片自动消失（trialActive 变 false）。
+ */
+@Composable
+private fun TrialNoticeCard(remainingSeconds: Long) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = pagePadding),
+        shape = MaterialTheme.shapes.medium,
+        colors = surfaceCardColors,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(cardPadding),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GkIcon(
+                imageVector = GkIcons.Schedule,
+                modifier = Modifier.size(iconSize),
+                tint = MaterialTheme.colorScheme.primary,
+                contentDescription = null,
+            )
+            Spacer(Modifier.width(iconTextGap))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = UiStrings.trial_remaining_title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = UiStrings.trial_remaining_time(formatTrialRemaining(remainingSeconds)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** 把剩余秒数格式化成「5 小时 12 分」/「12 分 30 秒」。 */
+private fun formatTrialRemaining(seconds: Long): String {
+    val safe = seconds.coerceAtLeast(0L)
+    val hours = safe / 3600
+    val minutes = (safe % 3600) / 60
+    val secs = safe % 60
+    return when {
+        hours > 0L -> "$hours 小时 $minutes 分"
+        minutes > 0L -> "$minutes 分 $secs 秒"
+        else -> "$secs 秒"
     }
 }

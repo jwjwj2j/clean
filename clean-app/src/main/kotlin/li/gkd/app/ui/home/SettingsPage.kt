@@ -1,5 +1,20 @@
 package li.gkd.app.ui.home
 
+import li.gkd.app.ui.style.lineGap
+import li.gkd.app.ui.component.GkSettingItem
+import com.clean.click.activation.activationErrorText
+import com.clean.click.activation.ActivationManager
+import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.AlertDialog
 import li.gkd.app.ui.component.GkPageBottomSpace
 import li.gkd.app.MainViewModel
 
@@ -123,6 +138,24 @@ fun useSettingsPage(): ScaffoldExt {
                 },
             )
 
+            // CLEAN：激活码入口。试用期内用户可在这里提前输入激活码取消 6 小时限制；
+            // 试用结束后门禁本身会拦到激活页，但设置里保留入口便于随时补激活。
+            val activation by ActivationManager.snapshotFlow.collectAsStateWithLifecycle()
+            var showActivationDialog by remember { mutableStateOf(false) }
+            GkSettingItem(
+                title = UiStrings.activation_entry_title,
+                subtitle = when {
+                    activation.activated && !activation.trialActive ->
+                        UiStrings.activation_entry_subtitle_activated
+                    activation.trialActive -> UiStrings.activation_entry_subtitle_active
+                    else -> UiStrings.activation_entry_subtitle_expired
+                },
+                onClick = { showActivationDialog = true },
+            )
+            if (showActivationDialog) {
+                ActivationEntryDialog(onDismiss = { showActivationDialog = false })
+            }
+
             Text(
                 text = UiStrings.settings_appearance,
                 modifier = Modifier.titleItemPadding(),
@@ -147,4 +180,71 @@ fun useSettingsPage(): ScaffoldExt {
             GkPageBottomSpace()
         }
     }
+}
+
+/**
+ * 设置页的激活码输入框（试用期内也可用）。
+ *
+ * 与全屏的 [ActivationPage] 共用同一套提交与错误文案，避免两处逻辑漂移。
+ * 激活成功后 [ActivationManager.isActivatedFlow] 变为 true，门禁自动放行，无需额外通知。
+ */
+@Composable
+private fun ActivationEntryDialog(onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var input by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(UiStrings.activation_title) },
+        text = {
+            Column {
+                Text(
+                    text = UiStrings.activation_window_hint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(lineGap))
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    label = { Text(UiStrings.activation_input_label) },
+                    singleLine = true,
+                    enabled = !busy,
+                )
+                message?.let { text ->
+                    Spacer(Modifier.height(lineGap))
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy && input.isNotBlank(),
+                onClick = {
+                    busy = true
+                    message = null
+                    scope.launch {
+                        when (val outcome = ActivationManager.activate(input)) {
+                            is ActivationManager.Outcome.Activated -> onDismiss()
+                            is ActivationManager.Outcome.Rejected ->
+                                message = activationErrorText(outcome)
+                            is ActivationManager.Outcome.InvalidInput ->
+                                message = outcome.message
+                        }
+                        busy = false
+                    }
+                },
+            ) { Text(UiStrings.activation_submit) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !busy) {
+                Text(UiStrings.activation_got_it)
+            }
+        },
+    )
 }

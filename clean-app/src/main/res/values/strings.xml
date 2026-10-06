@@ -503,4 +503,11 @@
     <!-- CLEAN：规则未触发原因（内存记录，见 RuleSkipLog） -->
     <string name="rule_skip_log_title">最近未触发的规则</string>
     <string name="rule_skip_log_more">另有 %1$s 条</string>
+    <!-- CLEAN：免费试用与激活入口 -->
+    <string name="trial_remaining_title">免费试用中</string>
+    <string name="trial_remaining_time">剩余 %1$s，到期后需激活码</string>
+    <string name="activation_entry_title">激活码</string>
+    <string name="activation_entry_subtitle_active">免费试用中，可提前输入激活码取消限制</string>
+    <string name="activation_entry_subtitle_activated">已激活，无需再操作</string>
+    <string name="activation_entry_subtitle_expired">试用已结束，请输入激活码</string>
 </resources>
