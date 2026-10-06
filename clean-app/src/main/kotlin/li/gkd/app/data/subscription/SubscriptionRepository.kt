@@ -1,5 +1,6 @@
 package li.gkd.app.data.subscription
 
+import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.CancellationException
@@ -138,9 +139,14 @@ object SubscriptionRepository {
      * 因此可以原样交给 [RawSubscription.parse]。
      */
     val builtinUrls = listOf(
+        // (1) 主源：npmmirror 的 tarball 端点。国内 CDN、稳定可达。
+        //     jsdelivr 在国内是**时通时不通**的，实测出现过「一次成功、下次失败」，
+        //     失败即静默退回随包停更规则 —— 用户看到的就是「订阅没更新」，很难定位。
+        //     注意：该响应是 .tgz（gzip + tar），须经 extractRulesPayload 解包。
+        "https://registry.npmmirror.com/@fkybnjd/gkd-subscription-cn/-/gkd-subscription-cn-1.0.6.tgz",
+        // (2) 备用：jsdelivr 裸 JSON5，不解包。
         "https://fastly.jsdelivr.net/npm/@fkybnjd/gkd-subscription-cn/dist/AIsouler_gkd_cn.json5",
         "https://cdn.jsdelivr.net/npm/@fkybnjd/gkd-subscription-cn/dist/AIsouler_gkd_cn.json5",
-        "https://fastly.jsdelivr.net/npm/@fkybnjd/gkd-subscription-cn@latest/dist/AIsouler_gkd_cn.json5",
     )
 
     /**
@@ -244,7 +250,7 @@ object SubscriptionRepository {
             var fromNetwork = false
             for (url in builtinUrls) {
                 try {
-                    text = client.get(url).bodyAsText()
+                    text = extractRulesPayload(client.get(url).body<ByteArray>())
                     fromNetwork = true
                     break
                 } catch (e: CancellationException) {
@@ -319,6 +325,71 @@ object SubscriptionRepository {
     }
 
     /** CLEAN 单源强制：删除除 [keepId] 与本地订阅之外的所有订阅源。必须在锁内调用。 */
+    /**
+     * 把订阅响应体转成规则正文，**同时兼容两种格式**：
+     *
+     * - 裸 JSON5（jsdelivr 等直接返回文件内容）-> 原样解码
+     * - gzip 的 npm tarball（npmmirror 的 /-/xxx.tgz）-> 解包后取包内规则文件
+     *
+     * 为什么要支持 tarball：npmmirror 的 /latest/files 端点对带 @ 的包名返回 403，
+     * 唯一可用的国内端点是 tarball；而 jsdelivr 在国内时通时不通，不能作为主源。
+     */
+    private fun extractRulesPayload(bytes: ByteArray): String {
+        // gzip magic: 1F 8B；非 gzip 一律按文本处理
+        if (bytes.size < 2 || bytes[0] != 0x1F.toByte() || bytes[1] != 0x8B.toByte()) {
+            return bytes.decodeToString()
+        }
+        java.util.zip.GZIPInputStream(java.io.ByteArrayInputStream(bytes)).use { gz ->
+            val header = ByteArray(TAR_BLOCK)
+            while (true) {
+                if (!gz.readFully(header)) break
+                // 全零块表示归档结束
+                if (header.all { it == 0.toByte() }) break
+                // 用 code 比较填充字符，避免在字符串里写引号
+                val name = String(header, 0, 100, Charsets.UTF_8).trimEnd { it.code == 0 || it.code == 32 }
+                val sizeText = String(header, 124, 12, Charsets.US_ASCII).trim().trimEnd { it.code == 0 }
+                val size = sizeText.toLongOrNull(8) ?: 0L
+                val isRules = name.endsWith(".json5") && !name.endsWith(".version.json5")
+                if (isRules) {
+                    val data = ByteArray(size.toInt())
+                    if (!gz.readFully(data)) break
+                    return data.decodeToString()
+                }
+                if (!gz.skipFully(size)) break
+            }
+        }
+        error("tarball 内未找到规则文件")
+    }
+
+    /** tar 每块 512 字节。 */
+    private const val TAR_BLOCK = 512
+
+    /** 读满 target，EOF 返回 false。 */
+    private fun java.io.InputStream.readFully(target: ByteArray): Boolean {
+        var offset = 0
+        while (offset < target.size) {
+            val read = read(target, offset, target.size - offset)
+            if (read <= 0) return false
+            offset += read
+        }
+        return true
+    }
+
+    /** 跳过 n 字节并按 512 对齐。 */
+    private fun java.io.InputStream.skipFully(n: Long): Boolean {
+        var remaining = (n + TAR_BLOCK - 1) / TAR_BLOCK * TAR_BLOCK
+        while (remaining > 0) {
+            val skipped = skip(remaining)
+            if (skipped > 0) {
+                remaining -= skipped
+                continue
+            }
+            if (read() < 0) return false
+            remaining -= 1
+        }
+        return true
+    }
+
     private suspend fun purgeForeignSources(keepId: Long?) {
         val stale = Db.subsItemDao.queryAll()
             .filter { it.id != keepId && !it.isLocal }
