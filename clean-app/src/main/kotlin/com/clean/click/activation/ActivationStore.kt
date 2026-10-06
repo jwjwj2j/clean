@@ -25,6 +25,7 @@ object ActivationStore {
     private const val KEY_CODE = "code"
     private const val KEY_ACTIVATED_AT = "activated_at"
     private const val KEY_LAST_SEEN = "last_seen"
+    private const val KEY_TRIAL_START = "trial_start_at"
 
     private const val FILE_DIR = "clean"
     private const val FILE_NAME = "activation.dat"
@@ -135,6 +136,27 @@ object ActivationStore {
             target.writeText(temp.readText(Charsets.UTF_8), Charsets.UTF_8)
             temp.delete()
         }
+    }
+
+    /**
+     * 免费试用的起始时间（秒）。未开始过返回 0。
+     *
+     * 与激活记录共用同一个 SharedPreferences，但不参与签名文件格式，
+     * 因此不影响既有的激活数据兼容性。
+     *
+     * 注意：清除应用数据会一并清掉它，试用会重新开始 —— 这是免费试用，不是安全边界，
+     * 刻意不做额外的防重置加固（那会误伤正常重装的用户）。
+     */
+    fun readTrialStart(context: Context): Long =
+        prefs(context).getLong(KEY_TRIAL_START, 0L)
+
+    /** 首次调用写入试用起始时间；已存在则原样返回，不覆盖。 */
+    fun ensureTrialStart(context: Context, now: Long): Long {
+        val local = prefs(context)
+        val existing = local.getLong(KEY_TRIAL_START, 0L)
+        if (existing > 0L) return existing
+        local.edit().putLong(KEY_TRIAL_START, now).apply()
+        return now
     }
 
     fun clear(context: Context) {

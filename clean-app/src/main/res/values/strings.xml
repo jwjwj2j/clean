@@ -453,7 +453,7 @@
 
     <!-- CLEAN 激活模块文案 -->
     <string name="activation_title">激活 CLEAN</string>
-    <string name="activation_subtitle">CLEAN 需要激活码才能使用。请向客服获取激活码，并在生成后 90 秒内完成激活。</string>
+    <string name="activation_subtitle">免费试用已结束。请向客服获取激活码继续使用，激活码需在生成后 90 秒内完成激活。</string>
     <string name="activation_input_label">激活码</string>
     <string name="activation_submit">激活</string>
     <string name="activation_success">激活成功，正在进入…</string>

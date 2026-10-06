@@ -1,7 +1,11 @@
 package com.clean.click.activation
 
+import li.gkd.app.appScope
 import li.gkd.app.BuildConfig
 import android.content.Context
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.Instant
@@ -37,6 +41,11 @@ object ActivationManager {
         val daysRemaining: Long? = null,
         val clockAnomaly: Boolean = false,
         val tier: Int = 0,
+
+        /** 免费试用是否仍在进行。 */
+        val trialActive: Boolean = false,
+        /** 试用剩余秒数（0 表示已结束）。 */
+        val trialRemainingSeconds: Long = 0,
     ) {
         val needsRenewNotice: Boolean
             get() = activated && !permanent &&
@@ -56,6 +65,9 @@ object ActivationManager {
     /** 无激活码版本使用的档位（tier 为 4 位，15 即解锁全部功能）。 */
     private const val FREE_BUILD_TIER = 15
 
+    /** 免费试用时长：6 小时（自首次启动起算，记录在 ActivationStore）。 */
+    const val TRIAL_SECONDS = 6L * 60L * 60L
+
     private val freeBuild: Boolean get() = !BuildConfig.ACTIVATION_REQUIRED
 
     private fun freeSnapshot() = Snapshot(
@@ -72,6 +84,35 @@ object ActivationManager {
     private lateinit var appContext: Context
     private val secret: ByteArray by lazy { ActivationSecret.key() }
 
+    private data class TrialState(val active: Boolean, val remainingSeconds: Long)
+
+    /**
+     * 计算试用状态。首次调用（且 allowWrite）时写入起始时间。
+     *
+     * 未写入且只读时按「刚刚开始」处理，避免把尚未落盘的首次启动误判成过期。
+     */
+    private fun trialState(now: Long, allowWrite: Boolean): TrialState {
+        val start = ActivationStore.readTrialStart(appContext).let { existing ->
+            if (existing > 0L) existing
+            else if (allowWrite) ActivationStore.ensureTrialStart(appContext, now)
+            else now
+        }
+        val elapsed = (now - start).coerceAtLeast(0L)
+        val remaining = (TRIAL_SECONDS - elapsed).coerceAtLeast(0L)
+        return TrialState(active = remaining > 0L, remainingSeconds = remaining)
+    }
+
+    private var trialExpireJob: Job? = null
+
+    /** 试用到期时立刻复检一次，让门禁在同一秒关闭，而不是等下次冷启动。 */
+    private fun scheduleTrialExpiry(remainingSeconds: Long) {
+        trialExpireJob?.cancel()
+        trialExpireJob = appScope.launch {
+            delay(remainingSeconds * 1000L + 500L)
+            refresh(allowWrite = false)
+        }
+    }
+
     fun initialize(context: Context) {
         appContext = context.applicationContext
         refresh(allowWrite = true)
@@ -84,12 +125,13 @@ object ActivationManager {
     fun refresh(allowWrite: Boolean = true) {
         val record = ActivationStore.read(appContext, secret)
         val now = Instant.now().epochSecond
+        val trial = trialState(now, allowWrite)
 
         // 时间回拨检测：只看记录里的 lastSeen，与当前时间比较
         val clockAnomaly = record.lastSeen > 0 && now < record.lastSeen - CLOCK_TOLERANCE_SECONDS
 
         if (record.isEmpty) {
-            publish(ActivationResult.Failure(ActivationError.BadSignature), clockAnomaly)
+            finish(ActivationResult.Failure(ActivationError.BadSignature), clockAnomaly, trial, now)
             return
         }
 
@@ -107,17 +149,17 @@ object ActivationManager {
             is ActivationResult.Success -> {
                 // 限时码在时间回拨时拒绝，永久码只告警（避免误伤）
                 if (clockAnomaly && !result.permanent) {
-                    publish(ActivationResult.Failure(ActivationError.ClockAnomaly), true)
+                    finish(ActivationResult.Failure(ActivationError.ClockAnomaly), true, trial, now)
                     return
                 }
                 if (allowWrite) {
                     ActivationStore.touch(appContext, secret, record, now)
                 }
-                publish(result, clockAnomaly)
+                finish(result, clockAnomaly, trial, now)
             }
 
             is ActivationResult.Failure -> {
-                publish(result, clockAnomaly)
+                finish(result, clockAnomaly, trial, now)
             }
         }
     }
@@ -171,9 +213,24 @@ object ActivationManager {
 
     // ----------------------------------------------------------------------
 
+    /** 发布结果，并按需安排试用到期时的自动复检。 */
+    private fun finish(
+        result: ActivationResult,
+        clockAnomaly: Boolean,
+        trial: TrialState,
+        now: Long,
+    ) {
+        publish(result, clockAnomaly, trial)
+        trialExpireJob?.cancel()
+        if (!freeBuild && result !is ActivationResult.Success && trial.active) {
+            scheduleTrialExpiry(trial.remainingSeconds)
+        }
+    }
+
     private fun publish(
         result: ActivationResult,
         clockAnomaly: Boolean,
+        trial: TrialState,
     ) {
         val snapshot = when (result) {
             is ActivationResult.Success -> {
@@ -189,12 +246,17 @@ object ActivationManager {
                     daysRemaining = remaining,
                     clockAnomaly = clockAnomaly,
                     tier = result.tier,
+                    trialActive = trial.active,
+                    trialRemainingSeconds = trial.remainingSeconds,
                 )
             }
 
+            // 没有有效激活码时：试用期内仍然放行（这就是「免费试用 6 小时」）
             is ActivationResult.Failure -> Snapshot(
-                activated = false,
+                activated = trial.active,
                 clockAnomaly = clockAnomaly,
+                trialActive = trial.active,
+                trialRemainingSeconds = trial.remainingSeconds,
             )
         }
         // 无激活码版本：无论激活记录校验结果如何，一律放行且永久有效。
