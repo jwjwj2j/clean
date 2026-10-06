@@ -211,7 +211,15 @@ object SubscriptionRepository {
             val existing =
                 liveItems.firstOrNull { it.updateUrl != null && it.updateUrl in builtinUrls }
 
-            if (existing != null) {
+            // 自愈：如果已安装的订阅**就是随包兜底那份**（id 与随包规则相同），
+            // 说明它从来不是从网络装上的 —— 典型来源是 Android 自动备份在重装时的恢复。
+            // 这种情况绝不能 early return，否则会永远停在停更的兜底规则上：
+            // 现象就是「第一次安装成功、卸载重装后一直显示默认订阅」。
+            val bundledId = parseBundledRules()?.id
+            val existingIsBundled =
+                existing != null && bundledId != null && existing.id == bundledId
+
+            if (existing != null && !existingIsBundled) {
                 if (!existing.enable) {
                     Db.subsItemDao.updateEnable(existing.id, true)
                 }
