@@ -1,12 +1,12 @@
 {
   id: -2,
-  name: 'CLEAN 补充规则',
+  name: 'CLEAN 规则',
   version: 7,
   author: 'CLEAN',
   globalGroups: [
     {
       key: 100,
-      name: '开屏广告（CLEAN 兜底）',
+      name: '开屏广告',
       order: 100,
       actionMaximum: 1,
       matchTime: 8000,

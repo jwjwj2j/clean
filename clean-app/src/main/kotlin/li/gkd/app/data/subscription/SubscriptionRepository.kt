@@ -313,7 +313,7 @@ object SubscriptionRepository {
             }
 
             val subscription = try {
-                RawSubscription.parse(text)
+                RawSubscription.parse(text).branded()
             } catch (e: Exception) {
                 result = SubscriptionResult.Failure(
                     reason = SubscriptionResult.FailureReason.Parse,
@@ -792,7 +792,7 @@ object SubscriptionRepository {
                 return@tryWithStateLock
             }
             val subscription = try {
-                RawSubscription.parse(text)
+                RawSubscription.parse(text).branded()
             } catch (e: Exception) {
                 e.printStackTrace()
                 LogUtils.d(e)
@@ -1029,7 +1029,7 @@ object SubscriptionRepository {
             throw Exception(UiStrings.subscription_update_url_request_failed, e)
         }
         val subscription = try {
-            RawSubscription.parse(text)
+            RawSubscription.parse(text).branded()
         } catch (e: Exception) {
             throw Exception(UiStrings.text_parse_failed, e)
         }
