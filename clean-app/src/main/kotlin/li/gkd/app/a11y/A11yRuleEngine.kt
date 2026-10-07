@@ -240,6 +240,17 @@ class A11yRuleEngine(private val service: A11yCommonImpl) {
          * 放宽到 1000ms 对快机型无影响（赛跑中 `safeActiveWindow` 先返回即生效）。
          */
         private const val ACTIVE_WINDOW_TIMEOUT_MILLIS = 1000L
+
+        /**
+         * 多个事件节点不一致时，是否优先采用 STATE_CHANGED 事件的节点。
+         *
+         * 开启可让开屏场景不再退回「取活动窗口 + 重建整棵树」（实测约 900ms），
+         * 代价是该节点不保证与窗口根节点一致，理论上存在匹配到旧界面内容的风险。
+         *
+         * 验证方式：连续冷启动 15 个带开屏广告的应用，确认跳过正确且无误触；
+         * 若要回滚，把此常量改为 false 即可（无需回退其他改动）。
+         */
+        private const val PREFER_STATE_EVENT_NODE = false
     }
 
     @Volatile
@@ -368,6 +379,18 @@ class A11yRuleEngine(private val service: A11yCommonImpl) {
             val lastNode = newEvents.last().safeSource
             if (lastNode == null || lastNode == newEvents[0].safeSource) {
                 lastNode
+            } else if (PREFER_STATE_EVENT_NODE) {
+                // 两个事件节点不一致时，原实现直接返回 null，于是退回
+                // `getTimeoutActiveWindow()` 去取活动窗口并重建整棵节点树 ——
+                // 实测这一步在冷启动开屏场景约 900ms，是「等一会才跳」的主要来源。
+                //
+                // 而开屏恰好必然命中这个分支：窗口切换会连发
+                // TYPE_WINDOW_STATE_CHANGED + TYPE_WINDOW_CONTENT_CHANGED 两个不同节点的事件。
+                //
+                // 这里改为优先采用 STATE_CHANGED（界面切换）那个事件的节点：
+                // 它标识的是「当前界面」，在开屏场景下比退回整棵树更贴近目标，
+                // 且省掉一次昂贵的窗口获取。命中不了时下游仍会照常退回原路径。
+                newEvents.lastOrNull { it.type == STATE_CHANGED }?.safeSource
             } else {
                 null
             }
