@@ -189,13 +189,37 @@ class A11yRuleEngine(private val service: A11yCommonImpl) {
         return lastAppId
     }
 
-    // 某些场景耗时 5000 ms
+    /**
+     * 取当前活动窗口节点，带超时保护。
+     *
+     * 这里两个协程**赛跑**：谁先拿到结果谁生效。
+     * - `safeActiveWindow` 一返回就立刻采用 —— 所以**超时值不影响快机型**；
+     * - 超时只决定「窗口一直拿不到时，多久放弃本次匹配」。
+     *
+     * 超时值原为 500ms（上游值）。实测反馈：**三星 One UI 上取活动窗口常超过 500ms**，
+     * 于是每次都在超时分支返回 null -> 调用处 `?: continue` 跳过该规则 ->
+     * 只能靠 [checkFutureStartJob] 再等 300ms 重试，表现为「开屏广告等一会才跳」。
+     * 放宽到 1000ms 后，慢机型可以**一次命中**，省掉那轮失败 + 重试；
+     * 而快机型仍在几十毫秒内返回，行为不变。
+     *
+     * 注意：不要无限放宽。上游注释提到某些场景 `safeActiveWindow` 会耗时 5000ms，
+     * 超时越长，极端情况下事件堆积的风险越大。若要再调，先看真机日志里的
+     * 「startQueryJob end X ms」再决定。
+     */
     private suspend fun getTimeoutActiveWindow(): AccessibilityNodeInfo? {
         return suspendCancellableCoroutine { s ->
             val temp = atomic<Continuation<AccessibilityNodeInfo?>?>(s)
             scope.launch(Dispatchers.IO) {
-                delay(500L.milliseconds)
+                delay(ACTIVE_WINDOW_TIMEOUT_MILLIS.milliseconds)
                 if (s.isActive) {
+                    // 超时分支：本次匹配会因为拿不到节点而被跳过（调用处 `?: continue`），
+                    // 只能等下一次事件或 checkFutureStartJob 的重试。
+                    // 打出这条日志是为了在真机上**量化**超时频率 ——
+                    // 三星等取窗口慢的机型上，如果这条频繁出现，说明超时值仍然偏小。
+                    Log.d(
+                        "A11yRuleEngine",
+                        "activeWindow timeout ${ACTIVE_WINDOW_TIMEOUT_MILLIS}ms, give up this query",
+                    )
                     temp.getAndUpdate { null }?.resume(null)
                 }
             }
@@ -206,6 +230,16 @@ class A11yRuleEngine(private val service: A11yCommonImpl) {
                 }
             }
         }
+    }
+
+    companion object {
+        /**
+         * 取活动窗口的等待上限。
+         *
+         * 500ms（上游值）在三星等取窗口较慢的机型上会频繁超时，导致开屏广告延迟跳过；
+         * 放宽到 1000ms 对快机型无影响（赛跑中 `safeActiveWindow` 先返回即生效）。
+         */
+        private const val ACTIVE_WINDOW_TIMEOUT_MILLIS = 1000L
     }
 
     @Volatile
