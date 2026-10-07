@@ -140,14 +140,21 @@ object SubscriptionRepository {
      * 因此可以原样交给 [RawSubscription.parse]。
      */
     val builtinUrls = listOf(
-        // (1) 主源：npmmirror 的 tarball 端点。国内 CDN、稳定可达。
-        //     jsdelivr 在国内是**时通时不通**的，实测出现过「一次成功、下次失败」，
-        //     失败即静默退回随包停更规则 —— 用户看到的就是「订阅没更新」，很难定位。
-        //     注意：该响应是 .tgz（gzip + tar），须经 extractRulesPayload 解包。
+        // 只用「直接返回 JSON5 正文」的地址。
+        //
+        // 曾把 npmmirror 的 tarball（/-/xxx.tgz）放在首位，但它有两个问题：
+        //  1) 需要 tar 解包，真机上实测解包失败（本地同算法却通过，差异未定位）；
+        //  2) 即使解包成功，它也会被记进 updateUrl，而「检查更新」要按 JSON 解析
+        //     SubsVersion —— 拿压缩包去解析必然报
+        //     「Fields [id, version] are required ... but they were missing」。
+        // 因此只保留纯净的 JSON5 端点。
+        // npmmirror 是**唯一在国内可达**的源（实测：jsdelivr 连接被重置、
+        // cdn.jsdelivr.net 与 unpkg.com 均 DNS 解析失败）。它的 /latest/files 端点
+        // 对带 @ 的包名返回 403，因此只能用 tarball 端点，必须解包。
         "https://registry.npmmirror.com/@fkybnjd/gkd-subscription-cn/-/gkd-subscription-cn-1.0.6.tgz",
-        // (2) 备用：jsdelivr 裸 JSON5，不解包。
         "https://fastly.jsdelivr.net/npm/@fkybnjd/gkd-subscription-cn/dist/AIsouler_gkd_cn.json5",
         "https://cdn.jsdelivr.net/npm/@fkybnjd/gkd-subscription-cn/dist/AIsouler_gkd_cn.json5",
+        "https://unpkg.com/@fkybnjd/gkd-subscription-cn/dist/AIsouler_gkd_cn.json5",
     )
 
     /**
@@ -257,10 +264,15 @@ object SubscriptionRepository {
             // 记录内容究竟来自网络还是随包兜底 —— 决定写入哪个 updateUrl，
             // 进而决定下次启动是否重试（见 BUNDLED_PLACEHOLDER_URL 的说明）。
             var fromNetwork = false
+            // 记录**实际成功**的那个地址，而不是 builtinUrls.first()。
+            // 否则一旦首选项失败、后面某个成功，updateUrl 会被写成失败地址，
+            // 导致之后每次「检查更新」都对着一个无效 URL 重试。
+            var successUrl: String? = null
             for (url in builtinUrls) {
                 try {
                     text = extractRulesPayload(rawClient.get(url).body<ByteArray>())
                     fromNetwork = true
+                    successUrl = url
                     break
                 } catch (e: CancellationException) {
                     throw e
@@ -326,7 +338,7 @@ object SubscriptionRepository {
                         id = subscription.id,
                         // 网络下载成功才记真实 URL；兜底则记占位值，
                         // 保证下次启动仍会重试下载。
-                        updateUrl = if (fromNetwork) builtinUrls.first()
+                        updateUrl = if (fromNetwork) (successUrl ?: builtinUrls.first())
                         else BUNDLED_PLACEHOLDER_URL,
                         order = 0,
                         enable = true,
@@ -364,40 +376,60 @@ object SubscriptionRepository {
         if (bytes.size < 2 || bytes[0] != 0x1F.toByte() || bytes[1] != 0x8B.toByte()) {
             return bytes.decodeToString()
         }
+        // 一次性把 tar 解压进内存再解析。
+        //
+        // 为什么不流式读：早先的实现用「逐个 512 字节块 + 手动跳过对齐」的方式，
+        // 在真机上失败（报「tarball 内未找到规则文件」），而同样的逻辑在本地用 Python
+        // 跑同一个文件是通的 —— 说明差异出在流的读取/跳过行为上，而不是数据本身。
+        // 规则包解压后仅约 1.4 MB，直接整体读入、按显式偏移量解析是确定性的：
+        // 没有流状态、没有 skip、没有对齐，出错的余地小得多。
+        val tar = java.util.zip.GZIPInputStream(java.io.ByteArrayInputStream(bytes))
+            .use { it.readBytes() }
+        var offset = 0
         var best: ByteArray? = null
-        java.util.zip.GZIPInputStream(java.io.ByteArrayInputStream(bytes)).use { gz ->
-            val header = ByteArray(TAR_BLOCK)
-            while (true) {
-                if (!gz.readFully(header)) break
-                // 全零块表示归档结束
-                if (header.all { it == 0.toByte() }) break
-                // 用 code 比较填充字符，避免在字符串里写引号
-                val name = String(header, 0, 100, Charsets.UTF_8).trimEnd { it.code == 0 || it.code == 32 }
-                val sizeText = String(header, 124, 12, Charsets.US_ASCII).trim().trimEnd { it.code == 0 }
-                val size = sizeText.toLongOrNull(8) ?: 0L
-                // tar 每个成员的数据区都要补齐到 512 的倍数。
-                // 读/跳过数据后**必须**把填充也跳掉，否则后续块全部错位，
-                // size 字段会读成垃圾值（可能巨大 -> 分配数组直接抛异常），
-                // 结果是所有 URL 都失败、静默退回随包停更规则。
-                val padded = (size + TAR_BLOCK - 1) / TAR_BLOCK * TAR_BLOCK
-                // 防御：成员大小异常时不再读入内存（避免垃圾值导致超大分配）
-                if (size > 0 && size <= MAX_TAR_MEMBER_SIZE) {
-                    val isRules =
-                        name.endsWith(".json5") && !name.endsWith(".version.json5")
-                    if (isRules) {
-                        val data = ByteArray(size.toInt())
-                        if (!gz.readFully(data)) break
-                        // 取「最大的」而不是「第一个」：包内可能同时有规则正文与
-                        // 版本元数据文件，按大小选对成员顺序与命名都不敏感。
-                        val current = best
-                        if (current == null || data.size > current.size) best = data
-                    }
+        while (offset + TAR_BLOCK <= tar.size) {
+            // 全零块表示归档结束
+            var allZero = true
+            for (p in offset until offset + TAR_BLOCK) {
+                if (tar[p] != 0.toByte()) {
+                    allZero = false
+                    break
                 }
-                // 无论是否命中，都要越过整个数据区（含填充）
-                if (!gz.skipExact(padded)) break
             }
+            if (allZero) break
+            // 用 code 比较填充字符，避免在字符串里写引号
+            val name = String(tar, offset, 100, Charsets.UTF_8)
+                .trimEnd { it.code == 0 || it.code == 32 }
+            // 只保留八进制数字（0..7 = 字符码 48..55），其余字符一律丢弃。
+            //
+            // tar 的 size 字段是 12 字节，按惯例为「八进制数字 + NUL/空格填充」，
+            // 但填充形态并不统一：真机实测在 trim()/trimEnd{} 之后**仍残留一个字符**，
+            // 使 toLongOrNull(8) 返回 null、size 变成 0 —— 于是 `size > 0` 恒为假，
+            // 永远不检查成员名，最后报「tarball 内未找到规则文件」。
+            // 直接过滤出数字字符不受填充形态影响，是最稳的写法。
+            val sizeText = String(tar, offset + 124, 12, Charsets.US_ASCII)
+                .filter { it.code in 48..55 }
+            val size = sizeText.toLongOrNull(8) ?: 0L
+            val dataStart = offset + TAR_BLOCK
+            val dataEnd = dataStart + size
+            LogUtils.d(
+                "tar成员",
+                "offset=$offset", "name=[$name]", "sizeRaw=[$sizeText]", "size=$size",
+                "tarSize=${tar.size}",
+            )
+            if (size > 0 && size <= MAX_TAR_MEMBER_SIZE && dataEnd <= tar.size) {
+                if (name.endsWith(".json5") && !name.endsWith(".version.json5")) {
+                    val data = tar.copyOfRange(dataStart, dataEnd.toInt())
+                    // 取最大的，而不是第一个：包内可能同时有规则正文与版本元数据
+                    val current = best
+                    if (current == null || data.size > current.size) best = data
+                }
+            }
+            // 数据区按 512 对齐
+            offset = dataStart + (((size + TAR_BLOCK - 1) / TAR_BLOCK) * TAR_BLOCK).toInt()
         }
-        return best?.decodeToString() ?: error("tarball 内未找到规则文件")
+        return best?.decodeToString()
+            ?: error("tarball 内未找到规则文件 size=${tar.size}")
     }
 
     /** tar 每块 512 字节。 */
