@@ -24,6 +24,7 @@ import li.gkd.app.util.client
 import li.gkd.app.util.distinctByIfAny
 import li.gkd.app.util.filterIfNotAll
 import li.gkd.app.util.json
+import li.gkd.app.util.rawClient
 import li.gkd.db.Db
 import li.gkd.db.LOCAL_SUBS_ID
 import li.gkd.db.SubsItem
@@ -258,7 +259,7 @@ object SubscriptionRepository {
             var fromNetwork = false
             for (url in builtinUrls) {
                 try {
-                    text = extractRulesPayload(client.get(url).body<ByteArray>())
+                    text = extractRulesPayload(rawClient.get(url).body<ByteArray>())
                     fromNetwork = true
                     break
                 } catch (e: CancellationException) {

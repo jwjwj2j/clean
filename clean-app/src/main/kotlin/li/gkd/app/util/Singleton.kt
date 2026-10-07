@@ -59,3 +59,29 @@ val client by lazy {
 }
 
 val collator by lazy { Collator.getInstance(Locale.CHINESE)!! }
+
+/**
+ * 下载订阅规则专用：**不能挂 [io.ktor.client.plugins.contentnegotiation.ContentNegotiation]**。
+ *
+ * 原因：client 上注册的是 `json(json, ContentType.Any)`，而 kotlinx.serialization 支持
+ * ByteArray，因此 `body<ByteArray>()` 会走转换器链、尝试把响应体当 JSON 反序列化。
+ * 订阅正文是 **JSON5**（非标准 JSON），npm tarball 更是 gzip 二进制 —— 反序列化必然抛错，
+ * 于是**所有规则源都失败**、静默退回随包的停更规则，现象是「规则几乎为 0」。
+ *
+ * 这里用一个不挂 ContentNegotiation 的裸客户端取原始字节，彻底绕开这条路径。
+ */
+val rawClient by lazy {
+    HttpClient(OkHttp) {
+        install(HttpTimeout) {
+            connectTimeoutMillis = 30_000
+            socketTimeoutMillis = 60_000
+            requestTimeoutMillis = 120_000
+        }
+        defaultRequest {
+            headers[HttpHeaders.UserAgent] = USER_AGENT
+        }
+        engine {
+            clientCacheSize = 0
+        }
+    }
+}
