@@ -25,3 +25,6 @@ libs.versions.updates.toml
 .clean-staging/
 **/activation/ActivationSecret.kt
 keygen/secret.key
+
+# 分发用安装包：刻意随仓库分发，其余 *.apk 仍被忽略
+!dist/*.apk

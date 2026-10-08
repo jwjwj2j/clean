@@ -4,6 +4,15 @@
 
 装上、授权、激活，然后用你的手机就行 —— **不需要配置任何规则**。
 
+## 下载
+
+| 文件 | 说明 |
+| --- | --- |
+| [`dist/CLEAN-free-1.0.0.apk`](dist/) | **free 版**：由 `-PCLEAN_FREE=true` 构建，激活门禁关闭，装完即可用，无需激活码 |
+
+- 需要激活码的版本仍然是不加参数构建：`./gradlew :clean-app:assembleRelease`（两种包出自同一份代码）。
+- 两个包共用包名 `com.clean.click`。**签名不同就无法互相覆盖安装**，切换前需先卸载，会丢本地设置。
+
 ## 截图
 
 | 首页 | 应用列表 |
@@ -106,5 +115,9 @@ GKD_KEY_PASSWORD=... \
 ```bash
 ./gradlew :clean-app:testDebugUnitTest :clean-selector:jvmTest
 ```
+
+> **从仓库直接 clone 无法编译**：激活密钥 `clean-app/src/main/kotlin/com/clean/click/activation/ActivationSecret.kt`
+> 是本项目的私有密钥，**刻意不入库**。自行编译前需要补上该文件（内容为 `object ActivationSecret { fun key(): ByteArray }`）。
+> free 版同样需要它才能编译——`-PCLEAN_FREE=true` 只关闭运行期的门禁，不改变编译依赖。
 
 </details>
