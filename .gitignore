@@ -28,3 +28,5 @@ keygen/secret.key
 
 # 分发用安装包：刻意随仓库分发，其余 *.apk 仍被忽略
 !dist/*.apk
+# apksigner 生成的 v4 签名边车，安装不需要，不入库
+*.idsig
