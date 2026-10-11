@@ -7,7 +7,7 @@
 | 项 | 值 |
 | --- | --- |
 | 应用名 / 包名 | CLEAN / `com.clean.click` |
-| versionName / versionCode | `1.0.0-a95f064` / `1` |
+| versionName / versionCode | `1.0.0-c797abc` / `1` |
 | 构建命令 | `./gradlew :clean-app:assembleRelease -PCLEAN_FREE=true` |
 | 激活门禁 | `BuildConfig.ACTIVATION_REQUIRED = false` —— 装完即用，无需激活码 |
 | 随包规则 | `assets/gkd-fallback.json5`，订阅 `id 0` / **`version 187`** |
@@ -15,7 +15,7 @@
 | minSdk / targetSdk | 26 / 37 |
 | ABI | `arm64-v8a`、`x86_64` |
 | 文件大小 | 3,362,068 字节 |
-| SHA-256 | `D0E6E5007129F9DCC1F72EAA718CCFC666F0B2D9564ADCDC61C32315C451ED7C` |
+| SHA-256 | `D64546956BB324D31C19E24DFDCE35FB1F94B09E1D06ACFC1DB31488AC069A48` |
 | 构建日期 | 2026-10-11 |
 
 ### 本次规则变更（相对上一版 `1.0.0-8d2fa41`）
@@ -25,10 +25,12 @@
 - 其余 610 个应用条目、全局组、11 个分类**保持不变**
 - 随包订阅 `version 186 → 187`，使已装旧兜底规则的设备认作「随包版本更新」
 
-### 规则生效范围（重要）
+### 规则来源策略（重要）
 
-- **在线时**：App 仍会从网络拉取订阅源（`SubscriptionRepository.builtinUrls`，当前指向 v413）并优先使用它；随包这份只在**拉取失败 / 首装无网**时兜底生效
-- 想让随包规则**始终**生效，需要改 `builtinUrls` 或关闭网络更新（当前未做）
+- 本版起 **App 优先使用随包规则**（`assets/gkd-fallback.json5`）：启动时直接装载随包那份，**不访问任何网络订阅源**。
+- 老用户（原先装的是网络订阅源）升级后会被自动切到随包规则，旧的网络源会被 `purgeForeignSources` 清除。
+- 「检查更新」对随包规则直接跳过（它没有可下载地址），不会再产生注定失败的更新请求与错误提示。
+- 要改回上游行为（先试网络、全部失败才用随包），把 `SubscriptionRepository.PREFER_BUNDLED_RULES` 改成 `false` 即可。
 
 ### 签名
 
