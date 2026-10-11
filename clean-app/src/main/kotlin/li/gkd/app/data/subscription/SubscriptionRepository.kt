@@ -98,6 +98,18 @@ private fun parseCleanRules(): RawSubscription? = runCatching {
     LogUtils.d("CLEAN 自有规则解析失败", it.message)
 }.getOrNull()
 
+/**
+ * CLEAN：内置规则来源策略。
+ *
+ * - `true`（当前）：**优先使用随包规则**（`assets/gkd-fallback.json5`）。
+ *   启动时直接安装随包那份，**不访问任何网络订阅源**；只有随包资源缺失或解析失败时，
+ *   才退回 [builtinUrls] 兜底。这样 App 里跑的规则就是发版时打进包的那份。
+ * - `false`：还原上游行为 —— 先试网络订阅源，全部失败才回退随包规则。
+ *
+ * 切换策略只改这一个常量，其余逻辑不变。
+ */
+private const val PREFER_BUNDLED_RULES = true
+
 object SubscriptionRepository {
     private val updateMutex = MutexState()
 
@@ -227,7 +239,9 @@ object SubscriptionRepository {
             val existingIsBundled =
                 existing != null && bundledId != null && existing.id == bundledId
 
-            if (existing != null && !existingIsBundled) {
+            // CLEAN：优先模式下一律重新装随包规则，因此不能在这里对「已装的网络源」
+            // early return —— 否则老用户会一直停在旧的网络订阅上，随包规则永远不生效。
+            if (!PREFER_BUNDLED_RULES && existing != null && !existingIsBundled) {
                 if (!existing.enable) {
                     Db.subsItemDao.updateEnable(existing.id, true)
                 }
@@ -259,7 +273,11 @@ object SubscriptionRepository {
                 return@tryWithStateLock
             }
 
-            var text: String? = null
+            // CLEAN：优先模式下先读随包规则，网络订阅源完全不访问。
+            var text: String? = if (PREFER_BUNDLED_RULES) readBundledRulesText() else null
+            if (text != null) {
+                LogUtils.d("使用随包规则（优先模式）", "字符数=${text.length}")
+            }
             var lastError: Exception? = null
             // 记录内容究竟来自网络还是随包兜底 —— 决定写入哪个 updateUrl，
             // 进而决定下次启动是否重试（见 BUNDLED_PLACEHOLDER_URL 的说明）。
@@ -268,23 +286,25 @@ object SubscriptionRepository {
             // 否则一旦首选项失败、后面某个成功，updateUrl 会被写成失败地址，
             // 导致之后每次「检查更新」都对着一个无效 URL 重试。
             var successUrl: String? = null
-            for (url in builtinUrls) {
-                try {
-                    text = extractRulesPayload(rawClient.get(url).body<ByteArray>())
-                    fromNetwork = true
-                    successUrl = url
-                    break
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    lastError = e
-                    LogUtils.d("内置订阅源下载失败", url, e.message)
+            if (text == null) {
+                for (url in builtinUrls) {
+                    try {
+                        text = extractRulesPayload(rawClient.get(url).body<ByteArray>())
+                        fromNetwork = true
+                        successUrl = url
+                        break
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        lastError = e
+                        LogUtils.d("内置订阅源下载失败", url, e.message)
+                    }
                 }
             }
-            // CLEAN：三个地址全部失败时回退到随包兜底规则。
+            // CLEAN：随包缺失、或非优先模式且网络全部失败时，回退到随包兜底规则。
             // 这是「全新安装 + 无网络」以及「上游 CDN 失效」两条路径的唯一保障。
             if (text == null) {
-                LogUtils.d("内置订阅源全部下载失败，改用随包兜底规则", lastError?.message)
+                LogUtils.d("改用随包兜底规则", lastError?.message)
                 text = readBundledRulesText()
             }
             if (text == null) {
@@ -1006,6 +1026,9 @@ object SubscriptionRepository {
         val item = entry.subsItem
         val current = entry.subscription
         val itemUpdateUrl = item.updateUrl ?: return null
+        // CLEAN：随包规则没有可下载的地址（占位 URL），检查更新时直接跳过，
+        // 避免每次都发一次注定失败的请求、并在界面上留下更新错误。
+        if (itemUpdateUrl == BUNDLED_PLACEHOLDER_URL) return null
         if (item.id < 0) return null
         val checkUrl = entry.checkUpdateUrl
         if (checkUrl != null && current != null) {
