@@ -7,16 +7,30 @@
 | 项 | 值 |
 | --- | --- |
 | 应用名 / 包名 | CLEAN / `com.clean.click` |
-| versionName / versionCode | `1.0.0-c797abc` / `1` |
+| versionName / versionCode | `1.0.0-b1c8ff6` / `1` |
 | 构建命令 | `./gradlew :clean-app:assembleRelease -PCLEAN_FREE=true` |
 | 激活门禁 | `BuildConfig.ACTIVATION_REQUIRED = false` —— 装完即用，无需激活码 |
 | 随包规则 | `assets/gkd-fallback.json5`，订阅 `id 0` / **`version 187`** |
 | 规则 SHA-256 | `01E3890195D9B095E2EBCC248E8A38E3F83D02E75340594D765121D8EB61BCDD`（与包内 assets 逐字节一致） |
 | minSdk / targetSdk | 26 / 37 |
 | ABI | `arm64-v8a`、`x86_64` |
-| 文件大小 | 3,362,068 字节 |
-| SHA-256 | `D64546956BB324D31C19E24DFDCE35FB1F94B09E1D06ACFC1DB31488AC069A48` |
-| 构建日期 | 2026-10-11 |
+| 文件大小 | 3,370,260 字节 |
+| SHA-256 | `689F428521623FAA3A1098907EC22907DED61149719AAAD86E45D4BFFAD2147E` |
+| 构建日期 | 2026-10-16 |
+
+### 本次新增：无障碍服务存活守护（相对上一版 `1.0.0-c797abc`）
+
+ColorOS 等系统会在后台运行数小时后自动关闭侧载应用的无障碍服务。本版加入守护：
+
+- **检测**：4 条路径 —— 无障碍服务销毁（秒级）／前台服务 10 分钟轮询／
+  `JobScheduler` 持久化周期任务（进程被杀后仍能拉起自检）／闹钟 + 开机广播；
+- **提醒**：被系统关闭时发 `IMPORTANCE_HIGH` 通知（息屏可全屏弹出，无权限自动降级），
+  点击直达本应用的无障碍开关页；
+- **防误报**：应用内主动关闭开关、切换自动化模式都不会触发提醒；同一次死亡只提醒一次。
+
+> **重要**：无 ADB / Shizuku / root 时**无法自动重新开启**无障碍开关（该开关受
+> `WRITE_SECURE_SETTINGS` 保护）。本机制是「尽快发现 + 一键恢复 + 进程自愈」，
+> 不是「自动修复」。完整方案与局限见 [../docs/10-无障碍存活守护.md](../docs/10-无障碍存活守护.md)。
 
 ### 本次规则变更（相对上一版 `1.0.0-8d2fa41`）
 
