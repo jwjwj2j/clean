@@ -101,14 +101,15 @@ private fun parseCleanRules(): RawSubscription? = runCatching {
 /**
  * CLEAN：内置规则来源策略。
  *
- * - `true`（当前）：**优先使用随包规则**（`assets/gkd-fallback.json5`）。
- *   启动时直接安装随包那份，**不访问任何网络订阅源**；只有随包资源缺失或解析失败时，
- *   才退回 [builtinUrls] 兜底。这样 App 里跑的规则就是发版时打进包的那份。
- * - `false`：还原上游行为 —— 先试网络订阅源，全部失败才回退随包规则。
+ * - `false`（当前）：**联网优先** —— 启动时先拉 [builtinUrls]（AIsouler 国内版订阅
+ *   `@fkybnjd/gkd-subscription-cn`），成功后以它为准，并保留「检查更新」的联网更新能力；
+ *   全部地址失败时才回退随包规则（`assets/gkd-fallback.json5`）。这是上游行为，
+ *   也是规则能持续更新的前提。
+ * - `true`：优先使用随包规则，**完全不访问任何网络订阅源**（规则只在发版时更新）。
  *
  * 切换策略只改这一个常量，其余逻辑不变。
  */
-private const val PREFER_BUNDLED_RULES = true
+private const val PREFER_BUNDLED_RULES = false
 
 object SubscriptionRepository {
     private val updateMutex = MutexState()
