@@ -7,16 +7,34 @@
 | 项 | 值 |
 | --- | --- |
 | 应用名 / 包名 | CLEAN / `com.clean.click` |
-| versionName / versionCode | `1.0.0-b1c8ff6` / `1` |
+| versionName / versionCode | `1.0.0-b7e8263` / `1` |
 | 构建命令 | `./gradlew :clean-app:assembleRelease -PCLEAN_FREE=true` |
 | 激活门禁 | `BuildConfig.ACTIVATION_REQUIRED = false` —— 装完即用，无需激活码 |
-| 随包规则 | `assets/gkd-fallback.json5`，订阅 `id 0` / **`version 187`** |
-| 规则 SHA-256 | `01E3890195D9B095E2EBCC248E8A38E3F83D02E75340594D765121D8EB61BCDD`（与包内 assets 逐字节一致） |
+| 随包规则 | `assets/gkd-fallback.json5`，订阅 `id 0` / **`version 188`** |
+| 规则 SHA-256 | `D1C9368B155AF48F7EAA4A91972D358EFCA675EE9C3D58E34B06CEF04BFD5E1B`（与包内 assets 逐字节一致） |
 | minSdk / targetSdk | 26 / 37 |
 | ABI | `arm64-v8a`、`x86_64` |
 | 文件大小 | 3,370,260 字节 |
-| SHA-256 | `689F428521623FAA3A1098907EC22907DED61149719AAAD86E45D4BFFAD2147E` |
+| SHA-256 | `23ACD761029C699228A4E723D61E5680BA6E78588F12AB70412310DF8D9C2064` |
 | 构建日期 | 2026-10-16 |
+
+### 本次修正（相对上一版 `1.0.0-b1c8ff6`）
+
+**规则：修正「六个应用规则全被打开」**
+
+- 根因：v413 的开关策略写在 `categories`（只有「开屏广告」`enable=true`，其余全 `false`），
+  而本文件沿用 v186 的 `categories`（全部没有 `enable`）→ 分类层失效 → 全部回落到
+  `group.enable ?: true` → 六个应用的规则被**全部打开**。
+- 修正：在这 6 个应用上显式写 `enable`（`开屏广告=true`，其余 `false`）。
+- 结果：**铁路12306 1/1、京东 1/13、携程 0/2、淘宝 1/15、美团 0/10、滴滴 0/5**
+  —— 合计 **3/46 组默认生效**；携程/美团/滴滴 无应用级规则生效，靠全局「开屏广告」兜底。
+- 其余 605 个应用条目、全局组、11 个分类**一字未动**；随包订阅 `version 187 → 188`。
+
+**可见性：设置页新增「无障碍守护」入口**
+
+- 显示：运行中 / 已开启等待连接 / 未开启；累计被系统关闭次数 + 上次被关时间；
+- 提供「立即检测」与「去开启」；
+- 之前守护没有任何界面，装完看不到任何痕迹 —— 这个入口就是用来核对的。
 
 ### 本次新增：无障碍服务存活守护（相对上一版 `1.0.0-c797abc`）
 
