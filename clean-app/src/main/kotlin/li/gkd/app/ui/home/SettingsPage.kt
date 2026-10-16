@@ -2,8 +2,18 @@ package li.gkd.app.ui.home
 
 import li.gkd.app.ui.style.lineGap
 import li.gkd.app.ui.component.GkSettingItem
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 import com.clean.click.activation.activationErrorText
 import com.clean.click.activation.ActivationManager
+import li.gkd.app.a11y.A11yGuard
+import li.gkd.app.a11y.useA11yServiceEnabledFlow
+import li.gkd.app.entry.A11yRecoveryActivity
+import li.gkd.app.service.A11yService
+import li.gkd.app.service.A11yWatchdog
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.setValue
@@ -156,6 +166,34 @@ fun useSettingsPage(): ScaffoldExt {
                 ActivationEntryDialog(onDismiss = { showActivationDialog = false })
             }
 
+            // CLEAN：无障碍守护。ColorOS 等系统会在长时间后台后关闭侧载应用的无障碍服务，
+            // 这里把「服务是否还开着 / 被系统关过几次」做成可见状态，并提供一次点击的恢复入口。
+            // 没有这个入口时，守护是完全不可见的（只在被关的那一刻才弹通知），用户无法核对。
+            val guardScope = rememberCoroutineScope()
+            val a11yCheckedFlow = remember { useA11yServiceEnabledFlow(guardScope) }
+            val a11yChecked by a11yCheckedFlow.collectAsStateWithLifecycle()
+            val a11yRunning by A11yService.isRunning.collectAsStateWithLifecycle()
+            val guardLostCount by A11yGuard.lostCountFlow.collectAsStateWithLifecycle()
+            val guardLostAt by A11yGuard.lostAtFlow.collectAsStateWithLifecycle()
+            var showGuardDialog by remember { mutableStateOf(false) }
+            GkSettingItem(
+                title = UiStrings.a11y_guard_title,
+                subtitle = when {
+                    a11yChecked && a11yRunning -> UiStrings.a11y_guard_state_running
+                    a11yChecked -> UiStrings.a11y_guard_state_connecting
+                    else -> UiStrings.a11y_guard_state_off
+                },
+                onClick = { showGuardDialog = true },
+            )
+            if (showGuardDialog) {
+                A11yGuardDialog(
+                    checked = a11yChecked,
+                    lostCount = guardLostCount,
+                    lostAt = guardLostAt,
+                    onDismiss = { showGuardDialog = false },
+                )
+            }
+
             Text(
                 text = UiStrings.settings_appearance,
                 modifier = Modifier.titleItemPadding(),
@@ -181,6 +219,83 @@ fun useSettingsPage(): ScaffoldExt {
         }
     }
 }
+
+/**
+ * CLEAN：无障碍守护详情。
+ *
+ * 说明为什么这里没有「自动修好」按钮：系统无障碍开关受 `WRITE_SECURE_SETTINGS` 保护，
+ * 没有 ADB / Shizuku / root 的应用改不了它，所以能提供的只有「立即检测」与「去开启」。
+ */
+@Composable
+private fun A11yGuardDialog(
+    checked: Boolean,
+    lostCount: Int,
+    lostAt: Long,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(UiStrings.a11y_guard_title) },
+        text = {
+            Column {
+                Text(
+                    text = if (checked) {
+                        UiStrings.a11y_guard_state_running
+                    } else {
+                        UiStrings.a11y_guard_state_off
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(lineGap))
+                Text(
+                    text = if (lostAt > 0L) {
+                        UiStrings.a11y_guard_lost_summary(lostCount) + "\n" +
+                                UiStrings.a11y_guard_last_lost(formatGuardTime(lostAt))
+                    } else {
+                        UiStrings.a11y_guard_never_lost
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(lineGap))
+                Text(
+                    text = UiStrings.a11y_guard_note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (checked) {
+                    A11yWatchdog.runCheck(context, "ui-dialog")
+                } else {
+                    context.startActivity(
+                        Intent(context, A11yRecoveryActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }) {
+                Text(
+                    if (checked) {
+                        UiStrings.a11y_guard_action_check
+                    } else {
+                        UiStrings.a11y_guard_action_open
+                    }
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(UiStrings.activation_got_it)
+            }
+        },
+    )
+}
+
+private fun formatGuardTime(millis: Long): String =
+    SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(millis))
 
 /**
  * 设置页的激活码输入框（试用期内也可用）。

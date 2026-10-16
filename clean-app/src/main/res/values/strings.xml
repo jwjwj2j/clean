@@ -516,4 +516,14 @@
     <string name="a11y_guard_action_open">去开启</string>
     <string name="a11y_guard_guide">请在系统设置里找到「CLEAN」，打开它的无障碍开关</string>
     <string name="a11y_guard_recovered">已恢复：无障碍服务重新开启</string>
+    <!-- CLEAN：设置页的「无障碍守护」入口（让守护状态可见、可核对） -->
+    <string name="a11y_guard_title">无障碍守护</string>
+    <string name="a11y_guard_state_running">运行中</string>
+    <string name="a11y_guard_state_connecting">已开启，等待服务连接</string>
+    <string name="a11y_guard_state_off">未开启，拦截不会工作</string>
+    <string name="a11y_guard_lost_summary">累计被系统关闭 %1$s 次</string>
+    <string name="a11y_guard_last_lost">上次被关：%1$s</string>
+    <string name="a11y_guard_never_lost">尚未被系统关闭过</string>
+    <string name="a11y_guard_note">系统关掉无障碍开关后，应用无法自动重新打开它（需要 ADB / Shizuku / root）。这里做到的是尽快提醒你，并把恢复动作压到一次点击。</string>
+    <string name="a11y_guard_action_check">立即检测</string>
 </resources>
