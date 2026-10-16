@@ -1,7 +1,9 @@
 package li.gkd.app.service
 
+import android.content.Intent
 import android.view.WindowManager
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -94,6 +96,16 @@ class StatusService : LifecycleHookService() {
             startToastDelayMillis = if (app.justStarted) 1000 else 0,
         )
         onCreated {
+            // CLEAN：把无障碍守护排上（持久化周期任务 + 闹钟），并立刻做一次自检。
+            A11yWatchdog.ensureScheduled(this)
+            A11yWatchdog.runCheck(this, "status-start")
+            // 进程还活着时的兜底轮询：无障碍服务被系统悄悄关掉时，最迟 10 分钟内被发现。
+            lifecycleScope.launch {
+                while (true) {
+                    delay(10 * 60 * 1000L)
+                    A11yWatchdog.runCheck(this@StatusService, "status-loop")
+                }
+            }
             if (!defaultStatusNotification.startForeground()) return@onCreated
             lifecycleScope.launch {
                 combine(
@@ -147,6 +159,17 @@ class StatusService : LifecycleHookService() {
                 owner = this,
             )
         }
+    }
+
+    /**
+     * CLEAN：显式声明 `START_STICKY`。
+     *
+     * 系统因内存压力杀掉本服务后会尝试重建它，重建会带回 `App.onCreate`、状态通知与守护轮询。
+     * 这不是"保证不死"，只是把"被杀之后没人管"的概率压低。
+     */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        return START_STICKY
     }
 
     companion object {

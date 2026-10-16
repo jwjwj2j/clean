@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import li.gkd.app.text.UiStrings
 import li.gkd.app.META
+import li.gkd.app.a11y.A11yGuard
 import li.gkd.app.a11y.systemRecentCn
 import li.gkd.app.a11y.currentTopActivity
 import li.gkd.app.ui.app.showAccessRestrictedSettingsDialog
@@ -60,6 +61,8 @@ private fun modifyA11yRun(
 
 private suspend fun switchA11yService() {
     if (A11yService.isRunning.value) {
+        // CLEAN：主动关闭前打标记，避免无障碍守护把它误判成「被系统关掉」而弹恢复提醒。
+        A11yGuard.markIntentionalStop()
         A11yService.instance?.disableSelf()
     } else {
         if (!PermissionStates.writeSecureSettings.updateAndGet()) {

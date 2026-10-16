@@ -510,4 +510,10 @@
     <string name="activation_entry_subtitle_active">免费试用中，可提前输入激活码取消限制</string>
     <string name="activation_entry_subtitle_activated">已激活，无需再操作</string>
     <string name="activation_entry_subtitle_expired">试用已结束，请输入激活码</string>
+    <!-- CLEAN：无障碍服务存活守护（被系统关闭后的检测与恢复引导） -->
+    <string name="a11y_guard_notif_title">无障碍服务已被系统关闭</string>
+    <string name="a11y_guard_notif_text">点此重新开启。关着的时候拦截不会工作，开机时间越久越容易被系统关掉一次。</string>
+    <string name="a11y_guard_action_open">去开启</string>
+    <string name="a11y_guard_guide">请在系统设置里找到「CLEAN」，打开它的无障碍开关</string>
+    <string name="a11y_guard_recovered">已恢复：无障碍服务重新开启</string>
 </resources>

@@ -24,6 +24,7 @@ import li.gkd.app.platform.lifecycle.onCreated
 import li.gkd.app.platform.lifecycle.useMainActivityLifecycle
 import li.gkd.app.platform.lifecycle.useLogLifecycle
 import li.gkd.app.permission.PermissionRequests
+import li.gkd.app.service.A11yWatchdog
 import li.gkd.app.service.StatusService
 import li.gkd.app.service.updateTopTaskAppId
 import li.gkd.app.store.AppStore.storeFlow
@@ -118,6 +119,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         ActivationManager.refresh(allowWrite = false)
+        // CLEAN：应用回到前台时顺手做一次无障碍守护自检。
+        // 此时应用处于前台，重建前台服务不受后台启动限制，是补充提醒的最佳时机。
+        A11yWatchdog.runCheck(this, "ui-resume")
     }
 
     private fun fixTransparentNavigationBar() {

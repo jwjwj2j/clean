@@ -13,7 +13,16 @@ enum class AppNotificationChannel(
     val description: String? = null,
     val importance: Int = NotificationManager.IMPORTANCE_LOW,
 ) {
-    Service(id = "0");
+    Service(id = "0"),
+
+    /**
+     * CLEAN：无障碍服务被系统关闭时的恢复提醒。
+     *
+     * 必须用 `IMPORTANCE_HIGH`：这条通知的全部价值就是"尽快把用户拉回开关页面"，
+     * 低优先级渠道在息屏/后台会被折叠，等于没有。
+     */
+    Guard(id = "1", importance = NotificationManager.IMPORTANCE_HIGH);
+
 
     val displayName: String
         get() = label ?: META.appName

@@ -42,6 +42,7 @@ import li.gkd.app.platform.lifecycle.MainActivityVisibility
 import li.gkd.app.platform.lifecycle.RuntimeStateSynchronizer
 import li.gkd.app.priv.PrivilegeOwnerLifecycle
 import li.gkd.app.priv.initPrivilege
+import li.gkd.app.service.A11yWatchdog
 import li.gkd.app.service.initA11yWhiteAppList
 import li.gkd.app.store.AppStore
 import li.gkd.app.util.AndroidTarget
@@ -280,6 +281,10 @@ class App : Application() {
             SubscriptionRepository.initialize()
         }
         initA11yWhiteAppList()
+        // CLEAN：把无障碍守护排上（持久化周期任务 + 闹钟）。
+        // 只安排、不在这里做自检 —— App 启动时可能处于后台，此时拉起前台服务会被系统拒绝；
+        // 真正的自检交给 StatusService / 周期任务 / 闹钟 / 开机广播。
+        A11yWatchdog.ensureScheduled(this)
         RuntimeStateSynchronizer.requestSync()
     }
 }

@@ -16,6 +16,9 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <uses-permission android:name="android.permission.GET_APP_OPS_STATS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- CLEAN：无障碍守护 —— 开机/覆盖安装后重建守护，以及息屏时弹出恢复提醒 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:name=".App"
@@ -78,6 +81,33 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
         </activity>
+        <!-- CLEAN：无障碍被系统关闭后的「一键恢复」入口。本身无界面（透明主题），
+             打开后直接跳到本应用无障碍服务的系统设置页；用户开好返回时自动复核。 -->
+        <activity
+            android:name=".entry.A11yRecoveryActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@style/TransparentTheme" />
+
+        <!-- CLEAN：无障碍守护的广播与周期任务 -->
+        <receiver
+            android:name=".service.A11yBootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.USER_UNLOCKED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".service.A11yWatchdogReceiver"
+            android:enabled="true"
+            android:exported="false" />
+        <service
+            android:name=".service.A11yWatchdogJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
