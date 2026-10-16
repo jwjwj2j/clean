@@ -137,8 +137,4 @@ GKD_KEY_PASSWORD=... \
 ./gradlew :clean-app:testDebugUnitTest :clean-selector:jvmTest
 ```
 
-> **从仓库直接 clone 无法编译**：激活密钥 `clean-app/src/main/kotlin/com/clean/click/activation/ActivationSecret.kt`
-> 是本项目的私有密钥，**刻意不入库**。自行编译前需要补上该文件（内容为 `object ActivationSecret { fun key(): ByteArray }`）。
-> free 版同样需要它才能编译——构建开关只关闭运行期的门禁，不改变编译依赖。
-
 </details>
