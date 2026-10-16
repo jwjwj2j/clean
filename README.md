@@ -8,20 +8,28 @@
 
 | 文件 | 说明 |
 | --- | --- |
-| [`dist/CLEAN-free-1.0.0.apk`](dist/) | **free 版**：由 `-PCLEAN_FREE=true` 构建，激活门禁关闭，装完即可用，无需激活码 |
+| [`dist/CLEAN-free-1.0.0.apk`](dist/) | **free 版**：激活门禁关闭，装完即可用，无需激活码 |
 
-- 需要激活码的版本仍然是不加参数构建：`./gradlew :clean-app:assembleRelease`（两种包出自同一份代码）。
+同一份代码出两种包：
+
+```bash
+# free 版（激活门禁关闭）
+./gradlew :clean-app:assembleRelease -PCLEAN_FREE=true
+
+# 需要激活码的版本
+./gradlew :clean-app:assembleRelease
+```
+
 - 两个包共用包名 `com.clean.click`。**签名不同就无法互相覆盖安装**，切换前需先卸载，会丢本地设置。
 
 ## 截图
 
-| 首页 | 应用列表 |
-| --- | --- |
-| ![首页](docs/screenshots/home.jpg) | ![应用列表](docs/screenshots/app-list.jpg) |
+<img src="docs/screenshots/home.jpg" alt="首页" width="240"> <img src="docs/screenshots/app-list.jpg" alt="应用列表" width="240">
 
-| 设置 | 应用规则 |
-| --- | --- |
-| ![设置](docs/screenshots/settings.jpg) | ![应用规则](docs/screenshots/app-rules.jpg) |
+<img src="docs/screenshots/settings.jpg" alt="设置" width="240"> <img src="docs/screenshots/app-rules.jpg" alt="应用规则" width="240">
+
+> 这里刻意用 HTML 的 img 标签，而不是 Markdown 的图片语法：某些 Markdown 格式化工具会把
+> 方括号转义，那样 GitHub 会把图片当作纯文本、截图就不再显示。
 
 ## 功能
 
@@ -71,10 +79,10 @@
 ## 无障碍服务会被系统关闭
 
 ColorOS 等系统会在长时间后台运行后关闭侧载应用的无障碍服务。没有 ADB / Shizuku / root 时，
-应用**无法自动重新打开那个开关**（它受 `WRITE_SECURE_SETTINGS` 保护，只有系统签名 / 预置应用或特权身份能写）。
+应用**无法自动重新打开那个开关**——它受系统的「写入安全设置」权限保护，只有系统签名、预置应用或特权身份能写。
 CLEAN 能做的是把"失联"这件事变得短而可见：
 
-- **尽快发现**：无障碍服务销毁（秒级）／前台服务轮询／`JobScheduler` 周期任务（进程被杀后仍能自检）／闹钟 + 开机广播；
+- **尽快发现**：无障碍服务销毁（秒级）／前台服务轮询／JobScheduler 周期任务（进程被杀后仍能自检）／闹钟 + 开机广播；
 - **一键恢复**：发高优先级通知，点击直达本应用的无障碍开关页，返回后自动复核；
 - **可核对**：设置页「无障碍守护」显示运行状态、累计被系统关闭次数与上次时间。
 
@@ -131,6 +139,6 @@ GKD_KEY_PASSWORD=... \
 
 > **从仓库直接 clone 无法编译**：激活密钥 `clean-app/src/main/kotlin/com/clean/click/activation/ActivationSecret.kt`
 > 是本项目的私有密钥，**刻意不入库**。自行编译前需要补上该文件（内容为 `object ActivationSecret { fun key(): ByteArray }`）。
-> free 版同样需要它才能编译——`-PCLEAN_FREE=true` 只关闭运行期的门禁，不改变编译依赖。
+> free 版同样需要它才能编译——构建开关只关闭运行期的门禁，不改变编译依赖。
 
 </details>
