@@ -7,7 +7,7 @@
 | 项 | 值 |
 | --- | --- |
 | 应用名 / 包名 | CLEAN / `com.clean.click` |
-| versionName / versionCode | `1.0.0-b7e8263` / `1` |
+| versionName / versionCode | `1.0.0-4da0920` / `1` |
 | 构建命令 | `./gradlew :clean-app:assembleRelease -PCLEAN_FREE=true` |
 | 激活门禁 | `BuildConfig.ACTIVATION_REQUIRED = false` —— 装完即用，无需激活码 |
 | 随包规则 | `assets/gkd-fallback.json5`，订阅 `id 0` / **`version 188`** |
@@ -15,10 +15,18 @@
 | minSdk / targetSdk | 26 / 37 |
 | ABI | `arm64-v8a`、`x86_64` |
 | 文件大小 | 3,370,260 字节 |
-| SHA-256 | `23ACD761029C699228A4E723D61E5680BA6E78588F12AB70412310DF8D9C2064` |
+| SHA-256 | `0D087024D6A456CD97716886AF41908B95EABEE9AD4C4B7B66D8A2D96A36F072` |
 | 构建日期 | 2026-10-16 |
 
-### 本次修正（相对上一版 `1.0.0-b1c8ff6`）
+### 本次变更（相对上一版 `1.0.0-b7e8263`）：规则源恢复为「联网优先」
+
+- 启动时先拉 `builtinUrls`（AIsouler 国内版订阅 `@fkybnjd/gkd-subscription-cn`），
+  成功后以它为准，并保留「检查更新」的**联网更新能力**；
+- 所有网络地址都失败时，才回退到随包规则 `assets/gkd-fallback.json5`（`id 0` / `version 188`）；
+- 随包那份同时作为离线兜底，六个应用保持「只默认启用开屏广告」的修正；
+- 要让 App 完全不联网、只用随包规则，把 `SubscriptionRepository.PREFER_BUNDLED_RULES` 改成 `true` 即可。
+
+### 规则修正与可见入口（自 `1.0.0-b1c8ff6` 起）
 
 **规则：修正「六个应用规则全被打开」**
 
